@@ -1,23 +1,50 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
   <component name="ChangeListManager">
-    <list default="true" id="d5b8b2b1-d3ec-4881-8b18-1c79e5ce52f9" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/Zabytkownik.iml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
+    <list default="true" id="d5b8b2b1-d3ec-4881-8b18-1c79e5ce52f9" name="Changes" comment="Pierwszy commit">
+      <change afterPath="$PROJECT_DIR$/utils/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/utils/dialogs.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/views/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/views/city_view.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/views/continent_view.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/views/country_view.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/views/login_view.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/views/monument_view.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/views/register_view.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/views/welcome_view.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;STBD001&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/STBD001/Zabytkownik.git&quot;,
+    &quot;accountId&quot;: &quot;b6d60282-774d-4a9f-9ca2-90bcd480dec6&quot;
+  }
+}</component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 3
 }</component>
@@ -74,17 +101,19 @@
       <option name="presentableId" value="Default" />
       <updated>1742490563455</updated>
     </task>
+    <task id="LOCAL-00001" summary="Pierwszy commit">
+      <option name="closed" value="true" />
+      <created>1742497663517</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1742497663517</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
     <servers />
   </component>
-  <component name="XDebuggerManager">
-    <breakpoint-manager>
-      <breakpoints>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/main.py</url>
-          <line>1</line>
-          <option name="timeStamp" value="1" />
-        </line-breakpoint>
-      </breakpoints>
-    </breakpoint-manager>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="Pierwszy commit" />
+    <option name="LAST_COMMIT_MESSAGE" value="Pierwszy commit" />
   </component>
 </project>

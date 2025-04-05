@@ -16,9 +16,7 @@ def create_country_view(page, continent):
         page.views.append(create_city_view(page, selected_country))
         page.update()
 
-    # Funkcja do powrotu do widoku kontynentów
     def go_back(e):
-        # Usuń bieżący widok (krajów)
         page.views.pop()
         page.update()
 
@@ -33,7 +31,7 @@ def create_country_view(page, continent):
                     alignment=ft.MainAxisAlignment.CENTER,
                 ),
                 on_click=on_country_click,
-                data=country,  # Dodanie data z nazwą kraju
+                data=country,
                 style=ft.ButtonStyle(
                     color=ft.colors.BLUE_900,
                     bgcolor=ft.colors.BLUE_100,
@@ -46,8 +44,6 @@ def create_country_view(page, continent):
         horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         spacing=10,
     )
-
-    # Dodanie przycisku powrotu
     back_button = ft.ElevatedButton(
         text="Powrót",
         on_click=go_back,
@@ -62,7 +58,7 @@ def create_country_view(page, continent):
             ft.Divider(height=20, color=ft.colors.TRANSPARENT),
             country_buttons,
             ft.Divider(height=20, color=ft.colors.TRANSPARENT),
-            back_button,  # Dodanie przycisku powrotu
+            back_button,
         ],
         vertical_alignment=ft.MainAxisAlignment.CENTER,
         horizontal_alignment=ft.CrossAxisAlignment.CENTER,

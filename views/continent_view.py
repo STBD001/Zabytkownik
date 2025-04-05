@@ -1,5 +1,6 @@
 import flet as ft
 
+
 def create_continent_view(page):
     continents = ["Europa", "Azja", "Ameryka Północna", "Ameryka Południowa", "Afryka", "Australia i Oceania"]
 
@@ -9,19 +10,39 @@ def create_continent_view(page):
         page.views.append(create_country_view(page, selected_continent))
         page.update()
 
-    # Funkcja do wylogowania
+    def show_profile(e):
+        from views.profile_view import create_profile_view
+        page.views.append(create_profile_view(page))
+        page.update()
+
     def logout(e):
+        page.session_clear()
         page.views.clear()
-        # Importuj dopiero w funkcji, aby uniknąć importu cyklicznego
         from views.welcome_view import create_welcome_view
         page.views.append(create_welcome_view(page))
         page.update()
+
+    profile_button = ft.ElevatedButton(
+        text="Mój profil",
+        on_click=show_profile,
+        bgcolor=ft.colors.BLUE_500,
+        color=ft.colors.WHITE,
+    )
 
     logout_button = ft.ElevatedButton(
         text="Wyloguj",
         on_click=logout,
         bgcolor=ft.colors.RED_500,
         color=ft.colors.WHITE,
+    )
+
+    header_row = ft.Row(
+        [
+            profile_button,
+            logout_button
+        ],
+        alignment=ft.MainAxisAlignment.END,
+        spacing=10
     )
 
     continent_buttons = ft.Column(
@@ -52,12 +73,13 @@ def create_continent_view(page):
     return ft.View(
         "/continents",
         [
+            header_row,
+            ft.Divider(height=20, color=ft.colors.TRANSPARENT),
             ft.Text("Wybierz kontynent:", size=24, weight=ft.FontWeight.BOLD, color=ft.colors.BLUE_900),
             ft.Divider(height=20, color=ft.colors.TRANSPARENT),
             continent_buttons,
-            ft.Divider(height=20, color=ft.colors.TRANSPARENT),
-            logout_button,  # Tylko przycisk wylogowania
         ],
         vertical_alignment=ft.MainAxisAlignment.CENTER,
         horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+        padding=20,
     )

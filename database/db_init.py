@@ -32,6 +32,7 @@ def initialize_database():
             user_id INTEGER,
             building_id INTEGER,
             visit_date TEXT,
+            user_photo_path TEXT,
             PRIMARY KEY (user_id, building_id),
             FOREIGN KEY (user_id) REFERENCES User(user_id) ON DELETE CASCADE,
             FOREIGN KEY (building_id) REFERENCES Building(building_id) ON DELETE CASCADE
@@ -45,7 +46,18 @@ def initialize_database():
         conn.commit()
         print("Baza danych zainicjalizowana pomyślnie.")
     else:
-        print("Baza danych już istnieje.")
+        # Sprawdźmy czy kolumna user_photo_path istnieje
+        cursor.execute("PRAGMA table_info(UserBuilding)")
+        columns = cursor.fetchall()
+        column_names = [column[1] for column in columns]
+
+        if 'user_photo_path' not in column_names:
+            print("Dodawanie kolumny user_photo_path do tabeli UserBuilding...")
+            cursor.execute("ALTER TABLE UserBuilding ADD COLUMN user_photo_path TEXT")
+            conn.commit()
+            print("Kolumna user_photo_path dodana pomyślnie.")
+        else:
+            print("Kolumna user_photo_path już istnieje.")
 
     conn.close()
     return DB_PATH
@@ -79,13 +91,13 @@ def seed_database():
 
     # Przykładowe wizyty
     visits = [
-        (1, 1, "2023-06-15"),
-        (1, 2, "2023-07-22"),
-        (2, 1, "2023-05-10"),
-        (2, 3, "2023-08-05"),
-        (3, 2, "2023-09-12")
+        (1, 1, "2023-06-15", None),
+        (1, 2, "2023-07-22", None),
+        (2, 1, "2023-05-10", None),
+        (2, 3, "2023-08-05", None),
+        (3, 2, "2023-09-12", None)
     ]
-    cursor.executemany("INSERT INTO UserBuilding VALUES (?, ?, ?)", visits)
+    cursor.executemany("INSERT INTO UserBuilding VALUES (?, ?, ?, ?)", visits)
 
     conn.commit()
     conn.close()

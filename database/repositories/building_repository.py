@@ -5,7 +5,6 @@ from database.models.building import Building
 class BuildingRepository:
     @staticmethod
     def get_by_id(building_id):
-        """Pobiera budynek po ID"""
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM Building WHERE building_id = ?", (building_id,))
@@ -15,7 +14,6 @@ class BuildingRepository:
 
     @staticmethod
     def get_all():
-        """Pobiera wszystkie budynki"""
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM Building")
@@ -24,13 +22,21 @@ class BuildingRepository:
         return buildings
 
     @staticmethod
+    def get_buildings_by_city(city_name):
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM Building WHERE description LIKE ?", (f'%{city_name}%',))
+        buildings = [Building.from_db_row(row) for row in cursor.fetchall()]
+        conn.close()
+        return buildings
+
+    @staticmethod
     def create(building):
-        """Tworzy nowy budynek w bazie danych"""
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT INTO Building (name, description, image_path) VALUES (?, ?, ?)",
-            (building.name, building.description, building.image_path)
+            "INSERT INTO Building (name, description, image_path, latitude, longitude) VALUES (?, ?, ?, ?, ?)",
+            (building.name, building.description, building.image_path, building.latitude, building.longitude)
         )
         building.building_id = cursor.lastrowid
         conn.commit()
@@ -39,12 +45,11 @@ class BuildingRepository:
 
     @staticmethod
     def update(building):
-        """Aktualizuje istniejący budynek"""
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute(
-            "UPDATE Building SET name = ?, description = ?, image_path = ? WHERE building_id = ?",
-            (building.name, building.description, building.image_path, building.building_id)
+            "UPDATE Building SET name = ?, description = ?, image_path = ?, latitude = ?, longitude = ? WHERE building_id = ?",
+            (building.name, building.description, building.image_path, building.latitude, building.longitude, building.building_id)
         )
         conn.commit()
         conn.close()
@@ -52,7 +57,6 @@ class BuildingRepository:
 
     @staticmethod
     def delete(building_id):
-        """Usuwa budynek o podanym ID"""
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute("DELETE FROM Building WHERE building_id = ?", (building_id,))

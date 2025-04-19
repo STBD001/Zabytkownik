@@ -6,74 +6,185 @@ from database.repositories.user_building_repository import UserBuildingRepositor
 import os
 import time
 from datetime import datetime
+from ui_helpers import (
+    AppTheme, create_header, create_monument_card, create_action_button,
+    show_loading, hide_loading, show_snackbar, show_confirmation_dialog,
+    apply_route_change_animation, create_responsive_grid
+)
 
 
 def create_monument_view(page, city):
+    loading = show_loading(page, f"Wczytywanie zabytków miasta {city}...")
+
     all_buildings = BuildingRepository.get_all()
+
+    print(f"Wszystkie dostępne zabytki w bazie ({len(all_buildings)}):")
+    for b in all_buildings:
+        print(f" - ID: {b.building_id}, Nazwa: {b.name}")
 
     city_monuments = {
         "Wrocław": [1, 2, 3]
     }
 
     monument_ids = city_monuments.get(city, [])
-    monuments = [building for building in all_buildings if building.building_id in monument_ids]
+    print(f"Identyfikatory zabytków dla miasta {city}: {monument_ids}")
+
+    monuments = []
+    for building in all_buildings:
+        if building.building_id in monument_ids:
+            monuments.append(building)
+            print(f"Dodano zabytek {building.name} (ID: {building.building_id})")
+
     if not monuments:
+        print(f"Nie znaleziono zabytków po ID, próba znalezienia po opisie...")
         monuments = [building for building in all_buildings if city.lower() in building.description.lower()]
+
+    print(f"Znalezione zabytki dla miasta {city} ({len(monuments)}):")
+    for monument in monuments:
+        print(f" - ID: {monument.building_id}, Nazwa: {monument.name}")
+
+    hide_loading(page, loading)
 
     def on_monuments_click(e):
         selected_monument = e.control.data
-        page.views.append(create_monument_detail_view(page, selected_monument))
-        page.update()
+        for monument in monuments:
+            if monument.building_id == selected_monument:
+                loading = show_loading(page, f"Wczytywanie szczegółów zabytku {monument.name}...")
+                time.sleep(0.5)
+                hide_loading(page, loading)
+
+                detail_view = create_monument_detail_view(page, monument)
+                apply_route_change_animation(page, detail_view)
+                break
 
     def go_back(e):
+        apply_route_change_animation(page, page.views[-2], direction="backward")
         page.views.pop()
         page.update()
 
-    back_button = ft.ElevatedButton(
+    def on_show_map(e):
+        try:
+            loading = show_loading(page, "Wczytywanie mapy zabytków...")
+            time.sleep(0.5)  # Krótkie opóźnienie dla efektu
+
+            from views.map_view import create_map_view
+            map_view = create_map_view(page, city)
+
+            if map_view:
+                hide_loading(page, loading)
+                apply_route_change_animation(page, map_view)
+            else:
+                hide_loading(page, loading)
+                show_snackbar(page, "Nie udało się utworzyć widoku mapy", color=AppTheme.ERROR)
+        except Exception as ex:
+            print(f"Błąd podczas tworzenia widoku mapy: {ex}")
+            hide_loading(page, loading)
+            show_snackbar(page, f"Błąd: {str(ex)}", color=AppTheme.ERROR)
+
+    back_button = create_action_button(
         "Powrót",
+        icon=ft.icons.ARROW_BACK,
         on_click=go_back,
-        style=ft.ButtonStyle(
-            color=ft.Colors.WHITE,
-            bgcolor=ft.Colors.BLUE_700,
-        )
+        color=AppTheme.SECONDARY
     )
 
-    monument_buttons = ft.Column(
-        [
-            ft.TextButton(
-                content=ft.Row(
-                    [
-                        ft.Icon(ft.icons.FLAG, color=ft.Colors.BLUE),
-                        ft.Text(monument.name, size=16),
-                    ],
-                    alignment=ft.MainAxisAlignment.CENTER,
-                ),
-                on_click=on_monuments_click,
-                data=monument,
-                style=ft.ButtonStyle(
-                    color=ft.Colors.BLUE_900,
-                    bgcolor=ft.Colors.BLUE_100,
-                    padding=ft.padding.symmetric(horizontal=20, vertical=10),
-                ),
+    map_button = create_action_button(
+        "Pokaż mapę zabytków",
+        icon=ft.icons.MAP,
+        on_click=on_show_map,
+        color=AppTheme.PRIMARY
+    )
+
+    monument_cards = []
+    for monument in monuments:
+        def on_click_factory(monument_id):
+            return lambda e: on_monuments_click(
+                type('obj', (object,), {'control': type('obj', (object,), {'data': monument_id})}))
+
+        card = create_monument_card(
+            monument,
+            on_click=on_click_factory(monument.building_id)
+        )
+        monument_cards.append(card)
+
+    if not monument_cards:
+        monument_cards.append(
+            ft.Container(
+                content=ft.Column([
+                    ft.Icon(ft.icons.INFO, size=48, color=AppTheme.PRIMARY),
+                    ft.Text(
+                        "Nie znaleziono zabytków dla tego miasta",
+                        size=16,
+                        color=AppTheme.TEXT_SECONDARY,
+                        text_align=ft.TextAlign.CENTER
+                    )
+                ],
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    spacing=10),
+                padding=20,
+                border_radius=10,
+                bgcolor=ft.colors.WHITE,
+                shadow=ft.BoxShadow(
+                    spread_radius=1,
+                    blur_radius=5,
+                    color=ft.colors.BLACK12,
+                    offset=ft.Offset(0, 2)
+                )
             )
-            for monument in monuments
-        ],
-        alignment=ft.MainAxisAlignment.CENTER,
-        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-        spacing=10,
+        )
+
+    monument_grid = create_responsive_grid(monument_cards, columns=3)
+    header = create_header(
+        f"Zabytki w {city}",
+        with_back_button=True,
+        page=page,
+        with_profile=True
+    )
+
+    action_buttons = ft.Container(
+        content=ft.Row(
+            [map_button, back_button],
+            alignment=ft.MainAxisAlignment.CENTER,
+            spacing=20
+        ),
+        padding=ft.padding.symmetric(vertical=20)
     )
 
     return ft.View(
         "/monuments",
         [
-            ft.Text(f"Wybierz zabytek w {city}:", size=24, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_900),
-            ft.Divider(height=20, color=ft.Colors.TRANSPARENT),
-            monument_buttons,
-            ft.Divider(height=20, color=ft.Colors.TRANSPARENT),
-            back_button,
+            header,
+            ft.Container(
+                content=ft.Column([
+                    ft.Container(
+                        content=ft.Text(
+                            f"Odkryj zabytki {city}",
+                            size=20,
+                            weight=ft.FontWeight.BOLD,
+                            color=AppTheme.TEXT_PRIMARY
+                        ),
+                        margin=ft.margin.only(bottom=10)
+                    ),
+                    ft.Container(
+                        content=monument_grid,
+                        padding=10,
+                        height=400,
+                        border_radius=10,
+                        bgcolor=ft.colors.WHITE,
+                        shadow=ft.BoxShadow(
+                            spread_radius=1,
+                            blur_radius=5,
+                            color=ft.colors.BLACK12,
+                            offset=ft.Offset(0, 2)
+                        )
+                    ),
+                    action_buttons
+                ]),
+                padding=20
+            )
         ],
-        vertical_alignment=ft.MainAxisAlignment.CENTER,
-        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+        scroll=ft.ScrollMode.AUTO,
+        padding=0
     )
 
 
@@ -90,135 +201,184 @@ def create_monument_detail_view(page, monument):
         visit = UserBuildingRepository.check_visit(current_user_id, monument.building_id)
         has_visited = visit is not None
 
+    visit_button = create_action_button(
+        text="✓ Zabytek odwiedzony!" if has_visited else "Oznacz jako odwiedzony",
+        icon=ft.icons.CHECK_CIRCLE if has_visited else ft.icons.ADD_CIRCLE,
+        color=AppTheme.SUCCESS,
+        on_click=None
+    )
+
+    visit_button.disabled = has_visited
+
+    unvisit_button = create_action_button(
+        text="Cofnij oznaczenie",
+        icon=ft.icons.REMOVE_CIRCLE,
+        color=AppTheme.ERROR,
+        on_click=None
+    )
+
+    unvisit_button.visible = has_visited
+
     def go_back(e):
+        apply_route_change_animation(page, page.views[-2], direction="backward")
         page.views.pop()
         page.update()
 
     def mark_as_visited(e):
+        nonlocal has_visited
         current_user_id = page.session_get("current_user_id")
         if current_user_id:
-            print(f"Dodawanie wizyty dla użytkownika {current_user_id} do zabytku {monument.building_id}")
+            loading = show_loading(page, "Oznaczanie zabytku jako odwiedzony...")
+
             try:
+                time.sleep(0.5)
                 UserBuildingRepository.add_visit(current_user_id, monument.building_id)
+
+                hide_loading(page, loading)
+
                 visit_button.text = "✓ Zabytek odwiedzony!"
-                visit_button.bgcolor = ft.Colors.GREEN_900
+                visit_button.icon = ft.icons.CHECK_CIRCLE
                 visit_button.disabled = True
                 unvisit_button.visible = True
-                page.snack_bar = ft.SnackBar(ft.Text("Zabytek został oznaczony jako odwiedzony!"))
-                page.snack_bar.open = True
+
+                show_snackbar(page, "Zabytek został oznaczony jako odwiedzony!", color=AppTheme.SUCCESS)
+                has_visited = True
                 page.update()
             except Exception as e:
+                hide_loading(page, loading)
                 print(f"Błąd podczas oznaczania zabytku jako odwiedzonego: {e}")
-                page.snack_bar = ft.SnackBar(ft.Text(f"Błąd podczas oznaczania zabytku: {str(e)}"))
-                page.snack_bar.open = True
-                page.update()
+                show_snackbar(page, f"Błąd podczas oznaczania zabytku: {str(e)}", color=AppTheme.ERROR)
         else:
-            print("Brak current_user_id w sesji")
-            page.snack_bar = ft.SnackBar(ft.Text("Musisz być zalogowany, aby oznaczać zabytki jako odwiedzone"))
-            page.snack_bar.open = True
-            page.update()
+            show_snackbar(page, "Musisz być zalogowany, aby oznaczać zabytki jako odwiedzone", color=AppTheme.WARNING)
+
+    visit_button.on_click = mark_as_visited if not has_visited else None
 
     def unmark_as_visited(e):
+        nonlocal has_visited
         current_user_id = page.session_get("current_user_id")
         if current_user_id:
-            success = UserBuildingRepository.remove_visit(current_user_id, monument.building_id)
-            if success:
-                visit_button.text = "Oznacz jako odwiedzony"
-                visit_button.bgcolor = ft.Colors.GREEN_700
-                visit_button.disabled = False
-                unvisit_button.visible = False
-                page.snack_bar = ft.SnackBar(ft.Text("Usunięto oznaczenie zabytku jako odwiedzonego"))
-                page.snack_bar.open = True
-                page.update()
-            else:
-                page.snack_bar = ft.SnackBar(ft.Text("Wystąpił błąd podczas usuwania oznaczenia"))
-                page.snack_bar.open = True
-                page.update()
+            def confirm_unmark():
+                loading = show_loading(page, "Usuwanie oznaczenia...")
+
+                try:
+                    time.sleep(0.5)
+                    success = UserBuildingRepository.remove_visit(current_user_id, monument.building_id)
+
+                    hide_loading(page, loading)
+
+                    if success:
+                        visit_button.text = "Oznacz jako odwiedzony"
+                        visit_button.icon = ft.icons.ADD_CIRCLE
+                        visit_button.disabled = False
+                        visit_button.on_click = mark_as_visited
+                        unvisit_button.visible = False
+
+                        show_snackbar(page, "Usunięto oznaczenie zabytku jako odwiedzonego", color=AppTheme.SUCCESS)
+                        has_visited = False
+                        page.update()
+                    else:
+                        show_snackbar(page, "Wystąpił błąd podczas usuwania oznaczenia", color=AppTheme.ERROR)
+                except Exception as e:
+                    hide_loading(page, loading)
+                    show_snackbar(page, f"Błąd: {str(e)}", color=AppTheme.ERROR)
+
+            show_confirmation_dialog(
+                page,
+                "Usuwanie oznaczenia",
+                "Czy na pewno chcesz usunąć oznaczenie zabytku jako odwiedzonego?",
+                confirm_unmark
+            )
         else:
-            page.snack_bar = ft.SnackBar(ft.Text("Musisz być zalogowany, aby modyfikować odwiedzone zabytki"))
-            page.snack_bar.open = True
-            page.update()
+            show_snackbar(page, "Musisz być zalogowany, aby modyfikować odwiedzone zabytki", color=AppTheme.WARNING)
+
+    unvisit_button.on_click = unmark_as_visited
 
     def on_capture_photo(e):
         if not current_user_id:
-            page.snack_bar = ft.SnackBar(ft.Text("Musisz być zalogowany, aby weryfikować zabytki"))
-            page.snack_bar.open = True
-            page.update()
+            show_snackbar(page, "Musisz być zalogowany, aby weryfikować zabytki", color=AppTheme.WARNING)
             return
 
         try:
+            loading = show_loading(page, "Przygotowywanie aparatu...")
+            time.sleep(0.5)  # Opóźnienie dla efektu
+
             from views.photo_capture_view import create_photo_capture_view
-            page.views.append(create_photo_capture_view(page, monument))
-            page.update()
-        except ImportError:
-            page.snack_bar = ft.SnackBar(ft.Text("Funkcja weryfikacji przez zdjęcie jest w trakcie implementacji"))
-            page.snack_bar.open = True
-            page.update()
+            photo_view = create_photo_capture_view(page, monument)
 
-    back_button = ft.ElevatedButton(
+            if photo_view:
+                hide_loading(page, loading)
+                apply_route_change_animation(page, photo_view)
+            else:
+                hide_loading(page, loading)
+                raise ImportError("Nie udało się utworzyć widoku zdjęcia")
+        except ImportError as ex:
+            hide_loading(page, loading)
+            show_snackbar(page, f"Funkcja weryfikacji przez zdjęcie jest w trakcie implementacji: {str(ex)}",
+                          color=AppTheme.WARNING)
+        except Exception as ex:
+            hide_loading(page, loading)
+            show_snackbar(page, f"Wystąpił błąd: {str(ex)}", color=AppTheme.ERROR)
+
+    back_button = create_action_button(
         "Powrót",
+        icon=ft.icons.ARROW_BACK,
         on_click=go_back,
-        style=ft.ButtonStyle(
-            color=ft.Colors.WHITE,
-            bgcolor=ft.Colors.BLUE_700,
-        )
+        color=AppTheme.SECONDARY
     )
 
-    visit_button = ft.ElevatedButton(
-        text="✓ Zabytek odwiedzony!" if has_visited else "Oznacz jako odwiedzony",
-        on_click=mark_as_visited if not has_visited else None,
-        disabled=has_visited,
-        style=ft.ButtonStyle(
-            color=ft.Colors.WHITE,
-            bgcolor=ft.Colors.GREEN_900 if has_visited else ft.Colors.GREEN_700,
-        )
-    )
-
-    unvisit_button = ft.ElevatedButton(
-        text="Cofnij oznaczenie",
-        on_click=unmark_as_visited,
-        visible=has_visited,
-        style=ft.ButtonStyle(
-            color=ft.Colors.WHITE,
-            bgcolor=ft.Colors.RED_400,
-        )
-    )
-
-    verify_button = ft.ElevatedButton(
+    verify_button = create_action_button(
         text="Zweryfikuj przez zdjęcie",
-        on_click=on_capture_photo,
-        style=ft.ButtonStyle(
-            color=ft.Colors.WHITE,
-            bgcolor=ft.Colors.PURPLE_700,
-        ),
         icon=ft.icons.CAMERA_ALT,
+        on_click=on_capture_photo,
+        color=AppTheme.PRIMARY
     )
 
-    map_url = f"https://www.google.com/maps/search/?api=1&query={monument.name.replace(' ', '+')}"
+    def on_show_map(e):
+        try:
+            loading = show_loading(page, "Wczytywanie mapy...")
+            time.sleep(0.5)
 
-    normalized_name = normalize_filename(monument.name)
-    map_files = {
-        1: "hala_stulecia_map.jpg",
-        2: "katedra_map.jpg",
-        3: "sky_tower_map.jpg"
-    }
+            from views.map_view import create_map_view
+
+            city = None
+            if "Wrocław" in monument.description:
+                city = "Wrocław"
+
+            map_view = create_map_view(page, city)
+
+            if map_view:
+                hide_loading(page, loading)
+                apply_route_change_animation(page, map_view)
+            else:
+                hide_loading(page, loading)
+                show_snackbar(page, "Nie udało się utworzyć widoku mapy", color=AppTheme.ERROR)
+        except Exception as ex:
+            hide_loading(page, loading)
+            print(f"Błąd podczas tworzenia widoku mapy: {ex}")
+            show_snackbar(page, f"Błąd: {str(ex)}", color=AppTheme.ERROR)
+
+    show_on_map_button = create_action_button(
+        "Pokaż na mapie",
+        icon=ft.icons.PLACE,
+        on_click=on_show_map,
+        color=AppTheme.SECONDARY
+    )
+
     monument_addresses = {
         1: "ul. Wystawowa 1, 51-618 Wrocław",
         2: "pl. Katedralny 18, 50-329 Wrocław",
         3: "ul. Powstańców Śląskich 95, 53-332 Wrocław"
     }
     monument_address = monument_addresses.get(monument.building_id, "")
-    map_filename = map_files.get(monument.building_id, f"{normalized_name}_map.jpg")
-    map_image_path = f"assets/{map_filename}"
-    print(f"Próba załadowania mapy z: {map_image_path}")
 
-    map_button = ft.ElevatedButton(
+    # Google Maps URL
+    map_url = f"https://www.google.com/maps/search/?api=1&query={monument.name.replace(' ', '+')}"
+
+    map_button = create_action_button(
         "Zobacz na Google Maps",
+        icon=ft.icons.MAP,
         on_click=lambda e: page.launch_url(map_url),
-        style=ft.ButtonStyle(
-            color=ft.Colors.WHITE,
-            bgcolor=ft.Colors.BLUE_700,
-        )
+        color=AppTheme.PRIMARY
     )
 
     address_text = ft.Text(
@@ -228,98 +388,130 @@ def create_monument_detail_view(page, monument):
         text_align=ft.TextAlign.CENTER,
     )
 
-    action_buttons = ft.Row(
-        [
-            visit_button,
-            unvisit_button,
-            verify_button
+    header = create_header(
+        monument.name,
+        with_back_button=True,
+        page=page,
+        with_profile=True
+    )
+
+    description_container = ft.Container(
+        content=ft.Text(
+            monument.description,
+            size=16,
+            text_align=ft.TextAlign.JUSTIFY,
+        ),
+        padding=15,
+        border_radius=10,
+        bgcolor=ft.colors.WHITE,
+        shadow=ft.BoxShadow(
+            spread_radius=1,
+            blur_radius=5,
+            color=ft.colors.BLACK12,
+            offset=ft.Offset(0, 2)
+        ),
+        margin=ft.margin.only(bottom=20)
+    )
+
+    action_buttons = ft.Container(
+        content=ft.Row(
+            [
+                visit_button,
+                unvisit_button,
+                verify_button,
+                show_on_map_button
+            ],
+            alignment=ft.MainAxisAlignment.CENTER,
+            spacing=10,
+            wrap=True
+        ),
+        margin=ft.margin.symmetric(vertical=20)
+    )
+
+    tabs = ft.Tabs(
+        selected_index=0,
+        animation_duration=300,
+        tabs=[
+            ft.Tab(
+                text="Opis",
+                icon=ft.icons.DESCRIPTION,
+                content=description_container
+            ),
+            ft.Tab(
+                text="Lokalizacja",
+                icon=ft.icons.PLACE,
+                content=ft.Container(
+                    content=ft.Column([
+                        ft.Image(
+                            src=f"assets/{monument.building_id}_map.jpg",
+                            width=400,
+                            height=300,
+                            fit=ft.ImageFit.COVER,
+                            border_radius=ft.border_radius.all(10)
+                        ),
+                        ft.Container(
+                            content=address_text,
+                            margin=ft.margin.only(top=10, bottom=10)
+                        ),
+                        map_button
+                    ],
+                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                        spacing=5
+                    ),
+                    padding=15,
+                    margin=ft.margin.only(top=10),
+                    border_radius=10,
+                    bgcolor=ft.colors.WHITE,
+                    shadow=ft.BoxShadow(
+                        spread_radius=1,
+                        blur_radius=5,
+                        color=ft.colors.BLACK12,
+                        offset=ft.Offset(0, 2)
+                    )
+                )
+            )
         ],
-        alignment=ft.MainAxisAlignment.CENTER,
-        spacing=10
+        expand=1
+    )
+
+    content = ft.Container(
+        content=ft.Column([
+            ft.Container(
+                content=ft.Image(
+                    src=monument.image_path,
+                    width=500,
+                    height=300,
+                    fit=ft.ImageFit.COVER,
+                    border_radius=ft.border_radius.all(10)
+                ),
+                margin=ft.margin.only(bottom=20),
+                shadow=ft.BoxShadow(
+                    spread_radius=1,
+                    blur_radius=10,
+                    color=ft.colors.BLACK38,
+                    offset=ft.Offset(0, 4)
+                ),
+                border_radius=ft.border_radius.all(10),
+                clip_behavior=ft.ClipBehavior.ANTI_ALIAS
+            ),
+
+            tabs,
+            action_buttons,
+            back_button
+        ],
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            spacing=0
+        ),
+        padding=20,
+        width=600
     )
 
     return ft.View(
         f"/monuments/{monument.building_id}",
         [
-            ft.Text(monument.name, size=24, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_900),
-            ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
-            ft.Row(
-                [
-                    ft.Column(
-                        [
-                            ft.Container(
-                                content=ft.Image(
-                                    src=monument.image_path,
-                                    width=400,
-                                    height=300,
-                                    fit=ft.ImageFit.COVER,
-                                ),
-                                border_radius=10,
-                                clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
-                                shadow=ft.BoxShadow(
-                                    spread_radius=1,
-                                    blur_radius=5,
-                                    color=ft.colors.BLACK38,
-                                ),
-                            ),
-                            ft.Container(
-                                content=ft.Text(
-                                    monument.description,
-                                    size=16,
-                                    text_align=ft.TextAlign.JUSTIFY,
-                                ),
-                                margin=ft.margin.only(top=15),
-                                padding=10,
-                            ),
-                        ],
-                        width=400,
-                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                    ),
-
-                    ft.VerticalDivider(width=40),
-                    ft.Column(
-                        [
-                            ft.Container(
-                                content=ft.Image(
-                                    src=map_image_path,
-                                    width=400,
-                                    height=300,
-                                    fit=ft.ImageFit.COVER,
-                                ),
-                                border_radius=10,
-                                clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
-                                shadow=ft.BoxShadow(
-                                    spread_radius=1,
-                                    blur_radius=5,
-                                    color=ft.colors.BLACK38,
-                                ),
-                            ),
-                            ft.Container(
-                                content=ft.Column(
-                                    [
-                                        map_button,
-                                        address_text,
-                                    ],
-                                    spacing=5,
-                                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                                ),
-                                margin=ft.margin.only(top=15),
-                            ),
-                        ],
-                        width=400,
-                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                    ),
-                ],
-                alignment=ft.MainAxisAlignment.CENTER,
-                spacing=10,
-            ),
-
-            ft.Divider(height=20, color=ft.Colors.TRANSPARENT),
-            action_buttons,
-            ft.Divider(height=20, color=ft.Colors.TRANSPARENT),
-            back_button,
+            header,
+            content
         ],
-        vertical_alignment=ft.MainAxisAlignment.START,
-        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-        padding=20,
+        scroll=ft.ScrollMode.AUTO,
+        padding=0
     )

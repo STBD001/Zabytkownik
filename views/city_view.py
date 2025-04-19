@@ -9,7 +9,7 @@ from ui_helpers import (
 def create_city_view(page, country):
     cities = {
         "Polska": [
-            {"name": "Wrocław", "image": "assets/Hala.jpeg", "enabled": True},
+            {"name": "Wrocław", "image": "assets/WRO.png", "enabled": True},
             {"name": "Kraków", "image": None, "enabled": False},
             {"name": "Warszawa", "image": None, "enabled": False},
             {"name": "Gdańsk", "image": None, "enabled": False}
@@ -24,7 +24,8 @@ def create_city_view(page, country):
     country_cities = cities.get(country, [])
 
     def on_city_click(e):
-        selected_city = e.control.data
+        selected_city = e.data
+        print(f"Wybrano miasto: {selected_city}")
 
         for city in country_cities:
             if city["name"] == selected_city and not city["enabled"]:
@@ -48,13 +49,30 @@ def create_city_view(page, country):
         apply_route_change_animation(page, monument_view)
 
     def go_back(e):
-        apply_route_change_animation(page, page.views[-2], direction="backward")
-        page.views.pop()
-        page.update()
+        print("Powrót z widoku miast")
+        try:
+            from views.country_view import create_country_view
+            country_view = create_country_view(page, country)
+            apply_route_change_animation(page, country_view, direction="backward")
+
+            # Usuń poprzedni widok
+            if len(page.views) > 1:
+                page.views.pop(0)
+            page.update()
+        except Exception as ex:
+            print(f"Błąd podczas powrotu: {ex}")
+            import traceback
+            traceback.print_exc()
+
+            # Awaryjny powrót
+            page.views.clear()
+            from views.country_view import create_country_view
+            page.views.append(create_country_view(page, country))
+            page.update()
 
     header = create_header(
         f"Miasta w {country}",
-        with_back_button=True,
+        with_back_button=False,  # Używamy własnego przycisku
         page=page,
         with_profile=True
     )
@@ -87,6 +105,23 @@ def create_city_view(page, country):
             margin=ft.margin.only(bottom=10)
         )
 
+        # Przycisk do pokazania zabytków
+        action_button = create_action_button(
+            "Zobacz zabytki",
+            icon=ft.icons.PLACE,
+            on_click=lambda e, name=city["name"]: on_city_click(type('obj', (object,), {'data': name})),
+            color=AppTheme.PRIMARY,
+            width=180
+        ) if city["enabled"] else ft.Container(
+            content=ft.Text(
+                "Wkrótce dostępne...",
+                size=14,
+                color=AppTheme.TEXT_HINT,
+                italic=True
+            ),
+            margin=ft.margin.only(top=10)
+        )
+
         card_content = ft.Container(
             content=ft.Column([
                 image,
@@ -99,21 +134,7 @@ def create_city_view(page, country):
                             color=AppTheme.TEXT_PRIMARY
                         ),
                         status_container,
-                        create_action_button(
-                            "Zobacz zabytki",
-                            icon=ft.icons.PLACE,
-                            on_click=on_city_click,
-                            color=AppTheme.PRIMARY,
-                            width=180
-                        ) if city["enabled"] else ft.Container(
-                            content=ft.Text(
-                                "Wkrótce dostępne...",
-                                size=14,
-                                color=AppTheme.TEXT_HINT,
-                                italic=True
-                            ),
-                            margin=ft.margin.only(top=10)
-                        )
+                        action_button
                     ],
                         horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                         spacing=5),
@@ -127,27 +148,33 @@ def create_city_view(page, country):
             animate=ft.animation.Animation(300, ft.AnimationCurve.EASE_OUT)
         )
 
-        card = ft.Card(
+        # Używamy GestureDetector dla obsługi kliknięć na miasto
+        card_with_gesture = ft.Card(
             content=card_content,
             elevation=3,
             margin=ft.margin.all(10),
-            on_click=on_city_click if city["enabled"] else None,
-            data=city["name"]
         )
 
+        # Dodaj obsługę hover tylko dla włączonych miast
         if city["enabled"]:
-            def on_hover(e):
-                if e.data == "true":
-                    e.control.elevation = 8
-                    e.control.content.scale = 1.03
-                else:
-                    e.control.elevation = 3
-                    e.control.content.scale = 1.0
-                e.control.update()
+            def create_hover_handler(card_widget):
+                def on_hover(e):
+                    try:
+                        if e.data == "true":
+                            card_widget.elevation = 8
+                            card_widget.content.scale = 1.03
+                        else:
+                            card_widget.elevation = 3
+                            card_widget.content.scale = 1.0
+                        card_widget.update()
+                    except Exception as err:
+                        print(f"Błąd w obsłudze hover: {err}")
 
-            card.on_hover = on_hover
+                return on_hover
 
-        city_cards.append(card)
+            card_with_gesture.on_hover = create_hover_handler(card_with_gesture)
+
+        city_cards.append(card_with_gesture)
 
     city_grid = ft.Row(
         controls=city_cards,

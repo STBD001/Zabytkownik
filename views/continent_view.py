@@ -31,6 +31,7 @@ def create_continent_view(page):
     ]
 
     def on_continent_click(e):
+        print(f"Kliknięto kontynent: {e.control.data}")
         selected_continent = e.control.data
 
         for continent in continents:
@@ -44,43 +45,118 @@ def create_continent_view(page):
 
         loading = show_loading(page, f"Wczytywanie krajów kontynentu {selected_continent}...")
 
-        import time
-        time.sleep(0.5)
+        try:
+            import time
+            time.sleep(0.5)
 
-        from views.country_view import create_country_view
-        country_view = create_country_view(page, selected_continent)
+            from views.country_view import create_country_view
+            country_view = create_country_view(page, selected_continent)
 
-        hide_loading(page, loading)
+            if country_view:
+                hide_loading(page, loading)
+                apply_route_change_animation(page, country_view)
+            else:
+                raise Exception(f"Nie udało się utworzyć widoku dla kontynentu {selected_continent}")
 
-        apply_route_change_animation(page, country_view)
+        except Exception as ex:
+            print(f"Błąd podczas ładowania krajów: {ex}")
+            import traceback
+            traceback.print_exc()
+
+            hide_loading(page, loading)
+            show_snackbar(page, f"Błąd ładowania krajów: {str(ex)}", color=AppTheme.ERROR)
 
     def show_profile(e):
+        print("Kliknięto przycisk Mój profil")
         loading = show_loading(page, "Wczytywanie profilu...")
 
-        import time
-        time.sleep(0.5)
+        try:
+            import time
+            time.sleep(0.5)
 
-        from views.profile_view import create_profile_view
-        profile_view = create_profile_view(page)
+            from views.profile_view import create_profile_view
+            profile_view = create_profile_view(page)
 
-        hide_loading(page, loading)
+            if profile_view:
+                hide_loading(page, loading)
+                # Dodaj widok profilu do stosu widoków
+                apply_route_change_animation(page, profile_view)
+            else:
+                raise Exception("Nie udało się utworzyć widoku profilu")
+        except Exception as ex:
+            print(f"Błąd podczas ładowania profilu: {ex}")
+            import traceback
+            traceback.print_exc()
 
-        apply_route_change_animation(page, profile_view)
+            hide_loading(page, loading)
+            show_snackbar(page, f"Błąd podczas ładowania profilu: {str(ex)}", color=AppTheme.ERROR)
+        finally:
+            # Upewnij się, że ładowanie jest zawsze ukrywane
+            try:
+                hide_loading(page, loading)
+            except:
+                pass
 
     def logout(e):
-        def confirm_logout():
+        print("Kliknięto przycisk wylogowania")
+
+        # Zamiast dialogu, użyjmy BottomSheet
+        logout_sheet = ft.BottomSheet(
+            ft.Container(
+                content=ft.Column([
+                    ft.Text(
+                        "Wylogowanie",
+                        size=22,
+                        weight=ft.FontWeight.BOLD,
+                        color=AppTheme.PRIMARY
+                    ),
+                    ft.Divider(),
+                    ft.Text(
+                        "Czy na pewno chcesz się wylogować?",
+                        size=16,
+                        text_align=ft.TextAlign.CENTER
+                    ),
+                    ft.Row([
+                        ft.ElevatedButton(
+                            "Anuluj",
+                            on_click=lambda e: close_sheet(),
+                            style=ft.ButtonStyle(
+                                color=ft.colors.WHITE,
+                                bgcolor=AppTheme.SECONDARY
+                            )
+                        ),
+                        ft.ElevatedButton(
+                            "Wyloguj",
+                            on_click=lambda e: perform_logout(),
+                            style=ft.ButtonStyle(
+                                color=ft.colors.WHITE,
+                                bgcolor=AppTheme.ERROR
+                            )
+                        )
+                    ], alignment=ft.MainAxisAlignment.CENTER, spacing=20)
+                ],
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    spacing=20),
+                padding=20,
+                width=page.width
+            ),
+            open=True
+        )
+
+        def close_sheet():
+            page.overlay.remove(logout_sheet)
+            page.update()
+
+        def perform_logout():
+            close_sheet()
             page.session_clear()
             page.views.clear()
             from views.welcome_view import create_welcome_view
             page.views.append(create_welcome_view(page))
             show_snackbar(page, "Zostałeś wylogowany", color=AppTheme.SUCCESS)
 
-        show_confirmation_dialog(
-            page,
-            "Wylogowanie",
-            "Czy na pewno chcesz się wylogować?",
-            confirm_logout
-        )
+        page.overlay.append(logout_sheet)
+        page.update()
 
     current_user = page.session_get("current_user")
     user_nickname = current_user.nickname if current_user else "Użytkownik"
@@ -123,27 +199,37 @@ def create_continent_view(page):
             color=ft.colors.BLACK38,
             offset=ft.Offset(0, 4)
         ),
-        opacity=0
+        opacity=1  # Zmieniono - od razu widoczne
     )
 
-    def animate_header():
-        header.opacity = 1
-        page.update()
-
-    page.run_task(animate_header)
-
-    profile_button = create_action_button(
-        "Mój profil",
+    # Przycisk profilu z obsługą kliknięcia
+    profile_button = ft.ElevatedButton(
+        text="Mój profil",
         icon=ft.icons.PERSON,
         on_click=show_profile,
-        color=AppTheme.PRIMARY
+        style=ft.ButtonStyle(
+            color=ft.colors.WHITE,
+            bgcolor=AppTheme.PRIMARY,
+            padding=ft.padding.symmetric(horizontal=20, vertical=10),
+            shape=ft.RoundedRectangleBorder(radius=AppTheme.BORDER_RADIUS_MD),
+            elevation=5,
+            animation_duration=AppTheme.ANIMATION_DURATION_MS,
+        ),
     )
 
-    logout_button = create_action_button(
-        "Wyloguj",
+    # Przycisk wylogowania z obsługą kliknięcia
+    logout_button = ft.ElevatedButton(
+        text="Wyloguj",
         icon=ft.icons.LOGOUT,
         on_click=logout,
-        color=AppTheme.ERROR
+        style=ft.ButtonStyle(
+            color=ft.colors.WHITE,
+            bgcolor=AppTheme.ERROR,
+            padding=ft.padding.symmetric(horizontal=20, vertical=10),
+            shape=ft.RoundedRectangleBorder(radius=AppTheme.BORDER_RADIUS_MD),
+            elevation=5,
+            animation_duration=AppTheme.ANIMATION_DURATION_MS,
+        ),
     )
 
     action_buttons = ft.Row(
@@ -152,19 +238,92 @@ def create_continent_view(page):
         spacing=10
     )
 
+    def create_button_hover_handler(button, color, enabled):
+        def hover_handler(e):
+            try:
+                if e.data == "true" and enabled:
+                    button.bgcolor = ft.colors.with_opacity(0.8, color)
+                    button.scale = 1.05
+                    button.shadow = ft.BoxShadow(
+                        spread_radius=2,
+                        blur_radius=6,
+                        color=ft.colors.BLACK26,
+                        offset=ft.Offset(0, 3)
+                    )
+                else:
+                    button.bgcolor = color if enabled else ft.colors.GREY_400
+                    button.scale = 1.0
+                    button.shadow = ft.BoxShadow(
+                        spread_radius=1,
+                        blur_radius=4,
+                        color=ft.colors.BLACK12,
+                        offset=ft.Offset(0, 2)
+                    )
+                button.update()
+            except Exception as err:
+                print(f"Błąd hovera przycisku: {err}")
+
+        return hover_handler
+
+    def create_hover_handler(container, color, enabled, button):
+        def hover_handler(e):
+            try:
+                if e.data == "true" and enabled:
+                    container.bgcolor = ft.colors.with_opacity(0.1, color)
+                    container.scale = 1.05
+                    container.shadow = ft.BoxShadow(
+                        spread_radius=2,
+                        blur_radius=10,
+                        color=ft.colors.BLACK26,
+                        offset=ft.Offset(0, 5)
+                    )
+                    # Dodaj efekt dla przycisku
+                    button.scale = 1.05
+                    button.shadow = ft.BoxShadow(
+                        spread_radius=2,
+                        blur_radius=6,
+                        color=ft.colors.BLACK26,
+                        offset=ft.Offset(0, 3)
+                    )
+                else:
+                    container.bgcolor = ft.colors.WHITE
+                    container.scale = 1.0
+                    container.shadow = ft.BoxShadow(
+                        spread_radius=1,
+                        blur_radius=5,
+                        color=ft.colors.BLACK12,
+                        offset=ft.Offset(0, 2)
+                    )
+                    # Zresetuj efekt przycisku
+                    button.scale = 1.0
+                    button.shadow = ft.BoxShadow(
+                        spread_radius=1,
+                        blur_radius=4,
+                        color=ft.colors.BLACK12,
+                        offset=ft.Offset(0, 2)
+                    )
+                container.update()
+                button.update()
+            except Exception as err:
+                print(f"Błąd hovera: {err}")
+
+        return hover_handler
+
+    # Inny sposób tworzenia kart kontynentów
     continent_cards = []
 
-    for continent in continents:
+    for continent_data in continents:
+        # Tworzenie kontenera z ikoną
         icon_container = ft.Container(
             content=ft.Icon(
-                continent["icon"],
+                continent_data["icon"],
                 size=48,
                 color=ft.colors.WHITE
             ),
             width=80,
             height=80,
             border_radius=40,
-            bgcolor=continent["color"],
+            bgcolor=continent_data["color"],
             alignment=ft.alignment.center,
             shadow=ft.BoxShadow(
                 spread_radius=1,
@@ -174,60 +333,96 @@ def create_continent_view(page):
             )
         )
 
+        # Status kontynentu (dostępny/niedostępny)
         status_text = ft.Text(
-            "Dostępny" if continent["enabled"] else "Wkrótce dostępny",
+            "Dostępny" if continent_data["enabled"] else "Wkrótce dostępny",
             size=12,
-            color=AppTheme.SUCCESS if continent["enabled"] else AppTheme.WARNING,
+            color=AppTheme.SUCCESS if continent_data["enabled"] else AppTheme.WARNING,
             italic=True
         )
 
-        card_content = ft.Container(
+        # Przycisk z ikoną strzałki (dla niedostępnych kontynentów)
+        icon_text = ft.Row(
+            [
+                ft.Icon(ft.icons.ARROW_FORWARD, size=16, color=ft.colors.WHITE),
+                ft.Text("Wybierz", color=ft.colors.WHITE, weight=ft.FontWeight.BOLD)
+            ],
+            spacing=5,
+            alignment=ft.MainAxisAlignment.CENTER,
+        )
+
+        # Przycisk do nawigacji do kontynentu - poprawiony wygląd
+        continent_button = ft.Container(
+            content=icon_text,
+            width=140,
+            height=40,
+            border_radius=5,
+            bgcolor=continent_data["color"] if continent_data["enabled"] else ft.colors.GREY_400,
+            alignment=ft.alignment.center,
+            on_click=on_continent_click if continent_data["enabled"] else None,
+            data=continent_data["name"],
+            shadow=ft.BoxShadow(
+                spread_radius=1,
+                blur_radius=4,
+                color=ft.colors.BLACK12,
+                offset=ft.Offset(0, 2)
+            ),
+            animate=ft.animation.Animation(200, ft.AnimationCurve.EASE_OUT),
+        )
+
+        # Dodaj efekt hover do przycisku
+        continent_button.on_hover = create_button_hover_handler(
+            continent_button,
+            continent_data["color"],
+            continent_data["enabled"]
+        )
+
+        # Karta kontynentu w formie kontenera - poprawiony wygląd
+        continent_card = ft.Container(
             content=ft.Column([
                 icon_container,
                 ft.Text(
-                    continent["name"],
+                    continent_data["name"],
                     size=18,
                     weight=ft.FontWeight.BOLD,
                     color=AppTheme.TEXT_PRIMARY
                 ),
-                status_text
+                status_text,
+                ft.Container(
+                    height=15
+                ),
+                continent_button
             ],
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                spacing=10),
+                spacing=10
+            ),
+            width=180,
+            height=250,
             padding=20,
+            margin=10,
             border_radius=15,
             bgcolor=ft.colors.WHITE,
-            animate=ft.animation.Animation(300, ft.AnimationCurve.EASE_OUT)
+            shadow=ft.BoxShadow(
+                spread_radius=1,
+                blur_radius=5,
+                color=ft.colors.BLACK12,
+                offset=ft.Offset(0, 2)
+            ),
+            # Hover efekt
+            animate=ft.animation.Animation(300, ft.AnimationCurve.EASE_OUT),
         )
 
-        card = ft.Card(
-            content=card_content,
-            elevation=3,
-            margin=ft.margin.all(10),
-            on_click=on_continent_click,
-            data=continent["name"]
+        # Dodaj efekt hover do kontenera
+        continent_card.on_hover = create_hover_handler(
+            continent_card,
+            continent_data["color"],
+            continent_data["enabled"],
+            continent_button
         )
 
-        def create_hover_handler(card_color):
-            def on_hover(e):
-                try:
-                    if e.data == "true":
-                        e.control.elevation = 8
-                        e.control.content.scale = 1.05
-                        e.control.content.bgcolor = ft.colors.with_opacity(0.1, card_color)
-                    else:
-                        e.control.elevation = 3
-                        e.control.content.scale = 1.0
-                        e.control.content.bgcolor = ft.colors.WHITE
-                    e.control.update()
-                except Exception as err:
-                    print(f"Błąd w obsłudze hover: {err}")
+        continent_cards.append(continent_card)
 
-            return on_hover
-
-        card.on_hover = create_hover_handler(continent["color"])
-        continent_cards.append(card)
-
+    # Układ kontynentów w dwóch rzędach
     continent_grid = ft.Column([
         ft.Row(
             continent_cards[:3],
@@ -251,7 +446,7 @@ def create_continent_view(page):
                     color=AppTheme.TEXT_HINT
                 ),
                 ft.Text(
-                    "© 2023 Zabytkownik Team",
+                    "© 2025 Zabytkownik Team (Stefan Wojciechowski)",
                     size=12,
                     color=AppTheme.TEXT_HINT
                 )

@@ -90,24 +90,36 @@ def create_login_view(page):
                     # Ważne - najpierw zaimportuj moduł
                     from views.continent_view import create_continent_view
 
-                    # Wyczyść historię nawigacji
-                    page.views.clear()
+                    try:
+                        # Wyczyść historię nawigacji
+                        page.views.clear()
 
-                    # Utwórz widok kontynentu
-                    print("Tworzenie widoku kontynentu")
-                    continent_view = create_continent_view(page)
+                        # Utwórz widok kontynentu
+                        print("Tworzenie widoku kontynentu")
+                        continent_view = create_continent_view(page)
 
-                    # Dodaj widok do stosu widoków
-                    print("Dodawanie widoku do stosu")
-                    page.views.append(continent_view)
+                        if continent_view:
+                            # Dodaj widok do stosu widoków
+                            print("Dodawanie widoku do stosu")
+                            page.views.append(continent_view)
 
-                    # Ważne - wykonaj aktualizację strony
-                    print("Aktualizacja strony")
-                    page.update()
+                            print("Aktualizacja strony po dodaniu widoku kontynentu")
+                            page.update()
 
-                    # Na końcu ukryj ładowanie i pokaż komunikat
-                    print("Logowanie zakończone sukcesem")
-                    show_snackbar(page, f"Witaj, {user.nickname}!", color=AppTheme.SUCCESS)
+                            # Upewnij się, że overlay ładowania jest usunięty
+                            hide_loading(page, loading)
+
+                            # Aktualizacja po usunięciu overlay
+                            page.update()
+
+                            # Pokaż komunikat powitalny na końcu
+                            print("Logowanie zakończone sukcesem")
+                            show_snackbar(page, f"Witaj, {user.nickname}!", color=AppTheme.SUCCESS)
+                        else:
+                            raise Exception("Widok kontynentu jest pusty")
+                    except Exception as continent_error:
+                        print(f"Błąd podrzędny: {continent_error}")
+                        raise Exception(f"Błąd w obsłudze widoku kontynentu: {continent_error}")
                 except Exception as view_error:
                     print(f"Błąd podczas ładowania widoku kontynentu: {view_error}")
                     import traceback
@@ -163,9 +175,28 @@ def create_login_view(page):
     )
 
     def go_back(e):
-        apply_route_change_animation(page, page.views[-2], direction="backward")
-        page.views.pop()
-        page.update()
+        print("Kliknięto przycisk powrotu z ekranu logowania")
+        try:
+            from views.welcome_view import create_welcome_view
+            welcome_view = create_welcome_view(page)
+
+            # Zastosuj animację i dodaj widok
+            apply_route_change_animation(page, welcome_view, direction="backward")
+
+            # Usuń bieżący widok po przekierowaniu
+            if len(page.views) > 1:
+                page.views.pop(0)
+            page.update()
+        except Exception as e:
+            print(f"Błąd podczas powrotu: {e}")
+            import traceback
+            traceback.print_exc()
+
+            # Awaryjne wyjście
+            page.views.clear()
+            from views.welcome_view import create_welcome_view
+            page.views.append(create_welcome_view(page))
+            page.update()
 
     back_button = create_action_button(
         "Powrót",
@@ -205,13 +236,13 @@ def create_login_view(page):
 
     header = create_header(
         "Logowanie",
-        with_back_button=True,
+        with_back_button=False,  # Zmienione - używamy własnego przycisku
         page=page
     )
 
     logo = ft.Container(
         content=ft.Image(
-            src="assets/Hala.jpeg",
+            src="assets/logo.jpg",
             width=120,
             height=120,
             fit=ft.ImageFit.COVER,

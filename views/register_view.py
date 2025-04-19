@@ -248,7 +248,7 @@ def create_register_view(page):
 
     logo = ft.Container(
         content=ft.Image(
-            src="assets/Hala.jpeg",
+            src="assets/logo.jpg",
             width=120,
             height=120,
             fit=ft.ImageFit.COVER,

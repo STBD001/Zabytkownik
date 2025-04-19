@@ -7,17 +7,13 @@ def create_welcome_view(page):
         from views.register_view import create_register_view
         from ui_helpers import apply_route_change_animation, show_loading, hide_loading
 
-        # Pokaż animację ładowania
         loading = show_loading(page, "Wczytywanie formularza rejestracji...")
 
-        # Symulacja krótkiego opóźnienia dla efektu
         import time
         time.sleep(0.5)
 
-        # Ukrycie ładowania
         hide_loading(page, loading)
 
-        # Przejście z animacją
         apply_route_change_animation(page, create_register_view(page))
         page.update()
 
@@ -25,32 +21,60 @@ def create_welcome_view(page):
         from views.login_view import create_login_view
         from ui_helpers import apply_route_change_animation, show_loading, hide_loading
 
-        # Pokaż animację ładowania
         loading = show_loading(page, "Wczytywanie formularza logowania...")
 
-        # Symulacja krótkiego opóźnienia dla efektu
         import time
         time.sleep(0.5)
 
-        # Ukrycie ładowania
         hide_loading(page, loading)
 
-        # Przejście z animacją
         apply_route_change_animation(page, create_login_view(page))
         page.update()
 
     def show_about(e):
-        # Wyświetlenie informacji o aplikacji
-        from ui_helpers import show_confirmation_dialog
-        show_confirmation_dialog(
-            page,
-            "O aplikacji",
-            "Zabytkownik to aplikacja, która pomoże Ci odkrywać, dokumentować i dzielić się swoimi wizytami w zabytkach. " +
-            "Zarejestruj się, aby rozpocząć swoją przygodę z historią architektury!",
-            lambda: None
+        print("Kliknięto O aplikacji")
+
+        # Zamiast dialogu, użyjmy bottomsheet
+        about_sheet = ft.BottomSheet(
+            ft.Container(
+                content=ft.Column([
+                    ft.Text(
+                        "O aplikacji",
+                        size=22,
+                        weight=ft.FontWeight.BOLD,
+                        color=AppTheme.PRIMARY
+                    ),
+                    ft.Divider(),
+                    ft.Text(
+                        "Zabytkownik to aplikacja, która pomoże Ci odkrywać, dokumentować i dzielić się swoimi wizytami w zabytkach. "
+                        "Zarejestruj się, aby rozpocząć swoją przygodę z historią architektury!",
+                        size=16,
+                        text_align=ft.TextAlign.CENTER
+                    ),
+                    ft.ElevatedButton(
+                        "Zamknij",
+                        on_click=lambda e: close_sheet(),
+                        style=ft.ButtonStyle(
+                            color=ft.colors.WHITE,
+                            bgcolor=AppTheme.PRIMARY
+                        )
+                    )
+                ],
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    spacing=20),
+                padding=20,
+                width=page.width
+            ),
+            open=True
         )
 
-    # Ładne przyciski z animacjami
+        def close_sheet():
+            page.overlay.remove(about_sheet)
+            page.update()
+
+        page.overlay.append(about_sheet)
+        page.update()
+
     register_button = create_action_button(
         text="Zarejestruj się",
         icon=ft.icons.PERSON_ADD,
@@ -75,7 +99,6 @@ def create_welcome_view(page):
         width=300
     )
 
-    # Efektowny baner górny
     header = ft.Container(
         content=ft.Column([
             ft.Text(
@@ -112,15 +135,14 @@ def create_welcome_view(page):
             color=ft.colors.BLACK38,
             offset=ft.Offset(0, 4)
         ),
-        opacity=1  # Ustawione na 1 zamiast 0, żeby element był widoczny od razu
+        opacity=1
     )
 
-    # Dodajemy atrakcyjną grafikę
     banner_image = ft.Container(
         content=ft.Image(
-            src="assets/Hala.jpeg",  # Wykorzystujemy istniejący obraz jako banner
-            width=400,
-            height=200,
+            src="assets/logo.jpg",
+            width=500,
+            height=300,
             fit=ft.ImageFit.COVER,
             border_radius=ft.border_radius.all(15),
         ),
@@ -133,19 +155,18 @@ def create_welcome_view(page):
         ),
     )
 
-    # Układamy elementy w atrakcyjny sposób
     content = ft.Column(
         [
             header,
-            ft.Container(height=20),  # Odstęp
+            ft.Container(height=20),
             banner_image,
             ft.Container(
                 content=ft.Column(
                     [
                         register_button,
-                        ft.Container(height=10),  # Odstęp
+                        ft.Container(height=10),
                         login_button,
-                        ft.Container(height=20),  # Większy odstęp
+                        ft.Container(height=20),
                         about_button
                     ],
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
@@ -167,7 +188,6 @@ def create_welcome_view(page):
         spacing=0
     )
 
-    # Tworzymy widok z możliwością przewijania na mniejszych ekranach
     return ft.View(
         "/welcome",
         [content],

@@ -5,6 +5,7 @@ import webbrowser
 import platform
 import subprocess
 from database.repositories.building_repository import BuildingRepository
+from database.repositories.user_building_repository import UserBuildingRepository
 from ui_helpers import (
     AppTheme, create_header, create_action_button,
     show_loading, hide_loading, show_snackbar,
@@ -12,10 +13,36 @@ from ui_helpers import (
 )
 
 
-def create_map_view(page, city=None):
-    loading = show_loading(page, "Wczytywanie danych do mapy...")
+def create_map_view(page, city=None, user_id=None):
+    title = "Wczytywanie danych do mapy..."
+    if user_id:
+        title = "Wczytywanie odwiedzonych zabytków..."
+    if city:
+        title = f"Wczytywanie zabytków w {city}..."
+
+    loading = show_loading(page, title)
 
     all_buildings = BuildingRepository.get_all()
+
+    filtered_buildings = all_buildings
+
+    if user_id:
+        try:
+            visited_data = UserBuildingRepository.get_user_buildings(user_id)
+
+            if visited_data and len(visited_data) > 0:
+                visited_building_ids = [item['building_id'] for item in visited_data]
+
+                filtered_buildings = []
+                for b in all_buildings:
+                    if b.building_id in visited_building_ids:
+                        filtered_buildings.append(b)
+            else:
+                filtered_buildings = []
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            filtered_buildings = all_buildings
 
     coords = {
         1: {"lat": 51.106993, "lng": 17.077128},
@@ -23,31 +50,30 @@ def create_map_view(page, city=None):
         3: {"lat": 51.099731, "lng": 17.028114}
     }
 
-    if city:
-        buildings_to_show = [building for building in all_buildings
+    if city and not user_id:
+        buildings_to_show = [building for building in filtered_buildings
                              if city and city.lower() in (building.description or "").lower()]
     else:
-        buildings_to_show = all_buildings
+        buildings_to_show = filtered_buildings
 
     buildings_with_coords = []
     for building in buildings_to_show:
-        if building.building_id in coords:
+        if building.latitude and building.longitude:
+            buildings_with_coords.append(building)
+        elif building.building_id in coords:
             building.latitude = coords[building.building_id]["lat"]
             building.longitude = coords[building.building_id]["lng"]
             buildings_with_coords.append(building)
 
-    if len(buildings_with_coords) < 3 and city == "Wrocław":
+    if len(buildings_with_coords) == 0:
         expected_ids = {1, 2, 3}
-        actual_ids = {b.building_id for b in buildings_with_coords}
-        missing_ids = expected_ids - actual_ids
 
-        if missing_ids:
-            for missing_id in missing_ids:
-                for b in all_buildings:
-                    if b.building_id == missing_id:
-                        b.latitude = coords[missing_id]["lat"]
-                        b.longitude = coords[missing_id]["lng"]
-                        buildings_with_coords.append(b)
+        for expected_id in expected_ids:
+            for b in all_buildings:
+                if b.building_id == expected_id:
+                    b.latitude = coords[expected_id]["lat"]
+                    b.longitude = coords[expected_id]["lng"]
+                    buildings_with_coords.append(b)
 
     hide_loading(page, loading)
 
@@ -80,6 +106,12 @@ def create_map_view(page, city=None):
         else:
             avg_lat = 51.107883
             avg_lng = 17.038538
+
+        map_title = "zabytków"
+        if city:
+            map_title = f"zabytków w {city}"
+        if user_id:
+            map_title = "odwiedzonych zabytków"
 
         html_content = f"""
         <!DOCTYPE html>
@@ -238,7 +270,7 @@ def create_map_view(page, city=None):
         </head>
         <body>
             <div class="header">
-                <h1 class="title">Mapa zabytków{' - ' + city if city else ''}</h1>
+                <h1 class="title">Mapa {map_title}</h1>
                 <p class="subtitle">Kliknij marker, aby zobaczyć szczegóły zabytku</p>
             </div>
 
@@ -313,44 +345,58 @@ def create_map_view(page, city=None):
         try:
             os.remove(interactive_map_path)
         except Exception as e:
-            print(f"Błąd podczas usuwania pliku mapy: {e}")
+            pass
 
         apply_route_change_animation(page, page.views[-2], direction="backward")
         page.views.pop()
         page.update()
 
-    interactive_map_path = create_interactive_map()
+    try:
+        interactive_map_path = create_interactive_map()
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        interactive_map_path = None
+        show_snackbar(page, "Nie udało się utworzyć mapy interaktywnej", color=AppTheme.ERROR)
 
     def open_interactive_map(e):
+        if not interactive_map_path:
+            show_snackbar(page, "Brak pliku mapy interaktywnej", color=AppTheme.ERROR)
+            return
+
         try:
             loading = show_loading(page, "Otwieranie mapy w przeglądarce...")
-
             file_url = f"file://{interactive_map_path}"
 
-            if platform.system() == 'Windows':
-                os.startfile(interactive_map_path)
-            elif platform.system() == 'Darwin':
-                subprocess.run(['open', file_url])
-            else:
-                subprocess.run(['xdg-open', file_url])
-
-            if not os.path.exists(interactive_map_path):
-                raise FileNotFoundError(f"Plik {interactive_map_path} nie istnieje")
-
-            webbrowser.open(file_url, new=2)
+            try:
+                if platform.system() == 'Windows':
+                    os.startfile(interactive_map_path)
+                elif platform.system() == 'Darwin':
+                    subprocess.run(['open', file_url], check=True)
+                else:
+                    subprocess.run(['xdg-open', file_url], check=True)
+            except Exception as e:
+                webbrowser.open(file_url, new=2)
 
             hide_loading(page, loading)
-
             show_snackbar(page, "Otwieranie mapy w przeglądarce...", color=AppTheme.SUCCESS)
         except Exception as ex:
-            hide_loading(page, loading)
-
             import traceback
             traceback.print_exc()
+
+            try:
+                hide_loading(page, loading)
+            except:
+                pass
+
             show_snackbar(page, f"Nie udało się otworzyć mapy: {str(ex)}", color=AppTheme.ERROR)
 
+    map_title = f"Mapa zabytków{' - ' + city if city else ''}"
+    if user_id:
+        map_title = "Mapa odwiedzonych zabytków"
+
     header = create_header(
-        f"Mapa zabytków{' - ' + city if city else ''}",
+        map_title,
         with_back_button=True,
         page=page,
         with_profile=True
@@ -370,67 +416,76 @@ def create_map_view(page, city=None):
         color=AppTheme.SECONDARY
     )
 
-    def on_building_click(e):
-        building_id = e.control.data
-        selected_building = None
+    # Zmodyfikowana funkcja obsługi kliknięcia na zabytek
+    def on_building_click(e, building_id):
+        try:
+            selected_building = None
+            for building in buildings_with_coords:
+                if building.building_id == building_id:
+                    selected_building = building
+                    break
 
-        for building in buildings_with_coords:
-            if building.building_id == building_id:
-                selected_building = building
-                break
+            if selected_building:
+                try:
+                    loading = show_loading(page, f"Wczytywanie szczegółów zabytku {selected_building.name}...")
 
-        if selected_building:
-            try:
-                loading = show_loading(page, f"Wczytywanie szczegółów zabytku {selected_building.name}...")
+                    from views.monument_view import create_monument_detail_view
 
-                from views.monument_view import create_monument_detail_view
+                    import time
+                    time.sleep(0.5)
 
-                import time
-                time.sleep(0.5)
+                    detail_view = create_monument_detail_view(page, selected_building)
 
-                detail_view = create_monument_detail_view(page, selected_building)
+                    hide_loading(page, loading)
 
-                hide_loading(page, loading)
+                    if detail_view:
+                        apply_route_change_animation(page, detail_view)
+                    else:
+                        show_snackbar(page, "Nie udało się otworzyć szczegółów zabytku", color=AppTheme.ERROR)
+                except Exception as ex:
+                    import traceback
+                    traceback.print_exc()
 
-                if detail_view:
-                    apply_route_change_animation(page, detail_view)
-                else:
-                    show_snackbar(page, "Nie udało się otworzyć szczegółów zabytku", color=AppTheme.ERROR)
-            except Exception as ex:
-                hide_loading(page, loading)
+                    try:
+                        hide_loading(page, loading)
+                    except:
+                        pass
 
-                import traceback
-                traceback.print_exc()
-                show_snackbar(page, f"Błąd: {str(ex)}", color=AppTheme.ERROR)
+                    show_snackbar(page, f"Błąd: {str(ex)}", color=AppTheme.ERROR)
+        except Exception as ex:
+            show_snackbar(page, f"Błąd: {str(ex)}", color=AppTheme.ERROR)
 
-    def open_building_on_map(e):
-        building_id = e.control.data
-        selected_building = None
+    # Zmodyfikowana funkcja otwierania mapy dla konkretnego budynku
+    def open_building_on_map(e, building_id):
+        try:
+            selected_building = None
 
-        for building in buildings_with_coords:
-            if building.building_id == building_id:
-                selected_building = building
-                break
+            for building in buildings_with_coords:
+                if building.building_id == building_id:
+                    selected_building = building
+                    break
 
-        if selected_building:
-            loading = show_loading(page, f"Otwieranie mapy dla {selected_building.name}...")
+            if selected_building:
+                loading = show_loading(page, f"Otwieranie mapy dla {selected_building.name}...")
 
-            url = f"https://www.openstreetmap.org/?mlat={selected_building.latitude}&mlon={selected_building.longitude}#map=17/{selected_building.latitude}/{selected_building.longitude}"
-            try:
-                if platform.system() == 'Windows':
-                    os.startfile(url)
-                elif platform.system() == 'Darwin':
-                    subprocess.run(['open', url])
-                else:
-                    subprocess.run(['xdg-open', url])
+                url = f"https://www.openstreetmap.org/?mlat={selected_building.latitude}&mlon={selected_building.longitude}#map=17/{selected_building.latitude}/{selected_building.longitude}"
+                try:
+                    if platform.system() == 'Windows':
+                        os.startfile(url)
+                    elif platform.system() == 'Darwin':
+                        subprocess.run(['open', url])
+                    else:
+                        subprocess.run(['xdg-open', url])
 
-                hide_loading(page, loading)
+                    hide_loading(page, loading)
 
-                show_snackbar(page, f"Otwieranie mapy dla: {selected_building.name}", color=AppTheme.SUCCESS)
-            except Exception as e:
-                hide_loading(page, loading)
+                    show_snackbar(page, f"Otwieranie mapy dla: {selected_building.name}", color=AppTheme.SUCCESS)
+                except Exception as e:
+                    hide_loading(page, loading)
 
-                show_snackbar(page, f"Nie udało się otworzyć mapy: {str(e)}", color=AppTheme.ERROR)
+                    show_snackbar(page, f"Nie udało się otworzyć mapy: {str(e)}", color=AppTheme.ERROR)
+        except Exception as ex:
+            show_snackbar(page, f"Błąd: {str(ex)}", color=AppTheme.ERROR)
 
     building_cards = []
 
@@ -438,11 +493,11 @@ def create_map_view(page, city=None):
         lat = building.latitude
         lng = building.longitude
 
+        # Zaktualizowane przyciski z domknięciem
         details_button = create_action_button(
             "Szczegóły",
             icon=ft.icons.INFO,
-            on_click=on_building_click,
-            data=building.building_id,
+            on_click=lambda e, bid=building.building_id: on_building_click(e, bid),
             color=AppTheme.PRIMARY,
             width=120
         )
@@ -450,8 +505,7 @@ def create_map_view(page, city=None):
         map_button_individual = create_action_button(
             "Na mapie",
             icon=ft.icons.PLACE,
-            on_click=open_building_on_map,
-            data=building.building_id,
+            on_click=lambda e, bid=building.building_id: open_building_on_map(e, bid),
             color=AppTheme.SECONDARY,
             width=120
         )
@@ -532,6 +586,10 @@ def create_map_view(page, city=None):
         building_cards.append(card)
 
     if not building_cards:
+        empty_message = "Nie znaleziono zabytków z danymi lokalizacji."
+        if user_id:
+            empty_message = "Nie masz jeszcze odwiedzonych zabytków z danymi lokalizacji."
+
         building_cards.append(
             ft.Container(
                 content=ft.Column([
@@ -541,7 +599,7 @@ def create_map_view(page, city=None):
                         color=AppTheme.PRIMARY
                     ),
                     ft.Text(
-                        "Nie znaleziono zabytków z danymi lokalizacji.",
+                        empty_message,
                         size=16,
                         color=AppTheme.TEXT_HINT,
                         text_align=ft.TextAlign.CENTER
@@ -565,6 +623,8 @@ def create_map_view(page, city=None):
     )
 
     title_text = f"Zabytki - {city}" if city else "Wszystkie zabytki"
+    if user_id:
+        title_text = "Odwiedzone zabytki"
 
     map_info = ft.Container(
         content=ft.Column([
@@ -608,14 +668,8 @@ def create_map_view(page, city=None):
         ),
         animate=ft.animation.Animation(500, ft.AnimationCurve.EASE_OUT),
         animate_opacity=ft.animation.Animation(800, ft.AnimationCurve.EASE_OUT),
-        opacity=0
+        opacity=1  # Ustawiam od razu na 1, usuwam run_task
     )
-
-    def animate_map_info():
-        map_info.opacity = 1
-        page.update()
-
-    page.run_task(animate_map_info)
 
     action_buttons = ft.Row(
         [back_button],
@@ -631,7 +685,7 @@ def create_map_view(page, city=None):
                 content=ft.Row([
                     ft.Icon(ft.icons.PLACE, color=AppTheme.PRIMARY),
                     ft.Text(
-                        "Dostępne zabytki",
+                        title_text,
                         size=18,
                         weight=ft.FontWeight.BOLD,
                         color=AppTheme.TEXT_PRIMARY

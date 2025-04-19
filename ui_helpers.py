@@ -298,53 +298,145 @@ def show_snackbar(page, message, color=None, action=None):
     page.update()
 
 
+def show_info_dialog(page, title, content):
+    """Wyświetla dialog informacyjny z jednym przyciskiem"""
+    print(f"Pokazuję dialog: {title}")
+
+    # Używamy BottomSheet zamiast AlertDialog
+    info_sheet = ft.BottomSheet(
+        ft.Container(
+            content=ft.Column([
+                ft.Text(
+                    title,
+                    size=22,
+                    weight=ft.FontWeight.BOLD,
+                    color=AppTheme.PRIMARY
+                ),
+                ft.Divider(),
+                ft.Text(
+                    content,
+                    size=16,
+                    text_align=ft.TextAlign.CENTER
+                ),
+                ft.ElevatedButton(
+                    "OK",
+                    on_click=lambda e: close_sheet(),
+                    style=ft.ButtonStyle(
+                        color=ft.colors.WHITE,
+                        bgcolor=AppTheme.PRIMARY
+                    )
+                )
+            ],
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                spacing=20),
+            padding=20,
+            width=page.width
+        ),
+        open=True
+    )
+
+    def close_sheet():
+        page.overlay.remove(info_sheet)
+        page.update()
+
+    page.overlay.append(info_sheet)
+    page.update()
+
+
 def show_confirmation_dialog(page, title, content, on_confirm, on_cancel=None):
-    def dismiss_dialog(e):
-        page.dialog = None
+    """Wyświetla dialog potwierdzenia z dwoma przyciskami"""
+    print(f"Pokazuję dialog potwierdzenia: {title}")
+
+    # Używamy BottomSheet zamiast AlertDialog
+    confirmation_sheet = ft.BottomSheet(
+        ft.Container(
+            content=ft.Column([
+                ft.Text(
+                    title,
+                    size=22,
+                    weight=ft.FontWeight.BOLD,
+                    color=AppTheme.PRIMARY
+                ),
+                ft.Divider(),
+                ft.Text(
+                    content,
+                    size=16,
+                    text_align=ft.TextAlign.CENTER
+                ),
+                ft.Row([
+                    ft.ElevatedButton(
+                        "Anuluj",
+                        on_click=lambda e: cancel_action(),
+                        style=ft.ButtonStyle(
+                            color=ft.colors.WHITE,
+                            bgcolor=AppTheme.SECONDARY
+                        )
+                    ),
+                    ft.ElevatedButton(
+                        "Potwierdź",
+                        on_click=lambda e: confirm_action(),
+                        style=ft.ButtonStyle(
+                            color=ft.colors.WHITE,
+                            bgcolor=AppTheme.PRIMARY
+                        )
+                    )
+                ], alignment=ft.MainAxisAlignment.CENTER, spacing=20)
+            ],
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                spacing=20),
+            padding=20,
+            width=page.width
+        ),
+        open=True
+    )
+
+    def cancel_action():
+        page.overlay.remove(confirmation_sheet)
         page.update()
         if on_cancel:
             on_cancel()
 
-    def confirm_dialog(e):
-        page.dialog = None
+    def confirm_action():
+        page.overlay.remove(confirmation_sheet)
         page.update()
         on_confirm()
 
-    dialog = ft.AlertDialog(
-        title=ft.Text(title, size=18, weight=ft.FontWeight.BOLD, color=AppTheme.TEXT_PRIMARY),
-        content=ft.Text(content, size=14, color=AppTheme.TEXT_SECONDARY),
-        actions=[
-            ft.TextButton("Anuluj", on_click=dismiss_dialog),
-            ft.TextButton("Potwierdź", on_click=confirm_dialog)
-        ],
-        actions_alignment=ft.MainAxisAlignment.END
-    )
-
-    page.dialog = dialog
+    page.overlay.append(confirmation_sheet)
     page.update()
 
 
 def apply_route_change_animation(page, new_view, direction="forward"):
-    start_offset = 1.0 if direction == "forward" else -1.0
+    try:
+        print(f"Animowanie przejścia widoku, kierunek: {direction}")
+        start_offset = 1.0 if direction == "forward" else -1.0
 
-    new_view.offset = ft.transform.Offset(start_offset, 0)
-    new_view.animate_offset = ft.animation.Animation(
-        duration=AppTheme.ANIMATION_DURATION_MS,
-        curve=ft.AnimationCurve.EASE_OUT
-    )
-
-    if len(page.views) > 0:
-        old_view = page.views[-1]
-        old_view.offset = ft.transform.Offset(0, 0)
-        old_view.animate_offset = ft.animation.Animation(
+        new_view.offset = ft.transform.Offset(start_offset, 0)
+        new_view.animate_offset = ft.animation.Animation(
             duration=AppTheme.ANIMATION_DURATION_MS,
-            curve=ft.AnimationCurve.EASE_IN
+            curve=ft.AnimationCurve.EASE_OUT
         )
-        old_view.offset = ft.transform.Offset(-start_offset, 0)
 
-    page.views.append(new_view)
-    new_view.offset = ft.transform.Offset(0, 0)
-    page.update()
+        if len(page.views) > 0:
+            try:
+                old_view = page.views[-1]
+                old_view.offset = ft.transform.Offset(0, 0)
+                old_view.animate_offset = ft.animation.Animation(
+                    duration=AppTheme.ANIMATION_DURATION_MS,
+                    curve=ft.AnimationCurve.EASE_IN
+                )
+                old_view.offset = ft.transform.Offset(-start_offset, 0)
+            except Exception as e:
+                print(f"Błąd podczas animowania poprzedniego widoku: {e}")
+
+        page.views.append(new_view)
+        new_view.offset = ft.transform.Offset(0, 0)
+        page.update()
+        print("Zakończono animację przejścia")
+    except Exception as e:
+        print(f"Błąd podczas animacji przejścia: {e}")
+        # Awaryjne przejście bez animacji
+        page.views.append(new_view)
+        page.update()
 
 
 def create_responsive_grid(controls, columns=3):
@@ -380,16 +472,60 @@ def show_profile(e, page):
 
 
 def logout(e, page):
-    def confirm_logout():
+    # Używamy BottomSheet zamiast AlertDialog
+    logout_sheet = ft.BottomSheet(
+        ft.Container(
+            content=ft.Column([
+                ft.Text(
+                    "Wylogowanie",
+                    size=22,
+                    weight=ft.FontWeight.BOLD,
+                    color=AppTheme.PRIMARY
+                ),
+                ft.Divider(),
+                ft.Text(
+                    "Czy na pewno chcesz się wylogować?",
+                    size=16,
+                    text_align=ft.TextAlign.CENTER
+                ),
+                ft.Row([
+                    ft.ElevatedButton(
+                        "Anuluj",
+                        on_click=lambda e: close_sheet(),
+                        style=ft.ButtonStyle(
+                            color=ft.colors.WHITE,
+                            bgcolor=AppTheme.SECONDARY
+                        )
+                    ),
+                    ft.ElevatedButton(
+                        "Wyloguj",
+                        on_click=lambda e: perform_logout(),
+                        style=ft.ButtonStyle(
+                            color=ft.colors.WHITE,
+                            bgcolor=AppTheme.ERROR
+                        )
+                    )
+                ], alignment=ft.MainAxisAlignment.CENTER, spacing=20)
+            ],
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                spacing=20),
+            padding=20,
+            width=page.width
+        ),
+        open=True
+    )
+
+    def close_sheet():
+        page.overlay.remove(logout_sheet)
+        page.update()
+
+    def perform_logout():
+        close_sheet()
         page.session_clear()
         page.views.clear()
         from views.welcome_view import create_welcome_view
         page.views.append(create_welcome_view(page))
         show_snackbar(page, "Zostałeś wylogowany", color=AppTheme.SUCCESS)
 
-    show_confirmation_dialog(
-        page,
-        "Wylogowanie",
-        "Czy na pewno chcesz się wylogować?",
-        confirm_logout
-    )
+    page.overlay.append(logout_sheet)
+    page.update()

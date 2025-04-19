@@ -65,7 +65,7 @@ def create_monument_view(page, city):
     def on_show_map(e):
         try:
             loading = show_loading(page, "Wczytywanie mapy zabytków...")
-            time.sleep(0.5)  # Krótkie opóźnienie dla efektu
+            time.sleep(0.5)
 
             from views.map_view import create_map_view
             map_view = create_map_view(page, city)
@@ -205,7 +205,7 @@ def create_monument_detail_view(page, monument):
         text="✓ Zabytek odwiedzony!" if has_visited else "Oznacz jako odwiedzony",
         icon=ft.icons.CHECK_CIRCLE if has_visited else ft.icons.ADD_CIRCLE,
         color=AppTheme.SUCCESS,
-        on_click=None
+        on_click=None if has_visited else lambda e: mark_as_visited(e)
     )
 
     visit_button.disabled = has_visited
@@ -214,15 +214,37 @@ def create_monument_detail_view(page, monument):
         text="Cofnij oznaczenie",
         icon=ft.icons.REMOVE_CIRCLE,
         color=AppTheme.ERROR,
-        on_click=None
+        on_click=lambda e: unmark_as_visited(e)
     )
 
     unvisit_button.visible = has_visited
 
     def go_back(e):
-        apply_route_change_animation(page, page.views[-2], direction="backward")
-        page.views.pop()
-        page.update()
+        try:
+            if len(page.views) >= 2:
+                previous_view = page.views[-2]
+                page.views.pop()
+                if previous_view:
+                    apply_route_change_animation(page, previous_view, direction="backward")
+                    page.update()
+                else:
+                    from views.continent_view import create_continent_view
+                    page.views.clear()
+                    page.views.append(create_continent_view(page))
+                    page.update()
+            else:
+                from views.continent_view import create_continent_view
+                page.views.clear()
+                page.views.append(create_continent_view(page))
+                page.update()
+        except Exception as ex:
+            print(f"Błąd podczas powrotu: {ex}")
+            import traceback
+            traceback.print_exc()
+            from views.continent_view import create_continent_view
+            page.views.clear()
+            page.views.append(create_continent_view(page))
+            page.update()
 
     def mark_as_visited(e):
         nonlocal has_visited
@@ -250,8 +272,6 @@ def create_monument_detail_view(page, monument):
                 show_snackbar(page, f"Błąd podczas oznaczania zabytku: {str(e)}", color=AppTheme.ERROR)
         else:
             show_snackbar(page, "Musisz być zalogowany, aby oznaczać zabytki jako odwiedzone", color=AppTheme.WARNING)
-
-    visit_button.on_click = mark_as_visited if not has_visited else None
 
     def unmark_as_visited(e):
         nonlocal has_visited
@@ -291,33 +311,131 @@ def create_monument_detail_view(page, monument):
         else:
             show_snackbar(page, "Musisz być zalogowany, aby modyfikować odwiedzone zabytki", color=AppTheme.WARNING)
 
-    unvisit_button.on_click = unmark_as_visited
+    def on_file_selected(e):
+        nonlocal has_visited
+
+        if e.files and len(e.files) > 0:
+            selected_file = e.files[0]
+            file_path = selected_file.path
+
+            loading = show_loading(page, "Weryfikowanie zdjęcia...")
+
+            try:
+                if not file_path.lower().endswith(('.jpg', '.jpeg', '.png')):
+                    hide_loading(page, loading)
+                    show_snackbar(page, "Proszę wybrać plik obrazu (JPG, JPEG lub PNG)", color=AppTheme.WARNING)
+                    return
+
+                print(f"Wybrane zdjęcie: {file_path}")
+
+                try:
+                    from ai.ImageAnalyzer import ImageAnalyzer
+
+                    analyzer = ImageAnalyzer(
+                        model_name='resnet50',
+                        similarity_threshold=0.5,
+                        reference_dir='assets/references'
+                    )
+
+                    print(f"Weryfikacja zdjęcia dla zabytku ID: {monument.building_id}")
+                    verification_result = analyzer.verify_monument(file_path, monument.building_id)
+                    print(f"Wynik weryfikacji: {verification_result}")
+
+                    if verification_result['success']:
+                        confidence = int(verification_result['confidence'] * 100)
+
+                        result = UserBuildingRepository.save_user_photo(current_user_id, monument.building_id,
+                                                                        file_path)
+
+                        if result:
+                            if not has_visited:
+                                UserBuildingRepository.add_visit(current_user_id, monument.building_id)
+                                has_visited = True
+                                visit_button.text = "✓ Zabytek odwiedzony!"
+                                visit_button.icon = ft.icons.CHECK_CIRCLE
+                                visit_button.disabled = True
+                                unvisit_button.visible = True
+
+                            hide_loading(page, loading)
+                            show_snackbar(page, f"Zabytek zweryfikowany pomyślnie! Pewność: {confidence}%",
+                                          color=AppTheme.SUCCESS)
+
+                            def go_to_profile():
+                                from views.profile_view import create_profile_view
+                                profile_view = create_profile_view(page)
+                                apply_route_change_animation(page, profile_view)
+
+                            show_confirmation_dialog(
+                                page,
+                                "Weryfikacja zakończona pomyślnie",
+                                f"Zdjęcie zostało zweryfikowane (pewność: {confidence}%) i zapisane. Czy chcesz przejść do profilu, aby zobaczyć swoje zdjęcie zabytku?",
+                                go_to_profile
+                            )
+                        else:
+                            hide_loading(page, loading)
+                            show_snackbar(page, "Wystąpił błąd podczas zapisywania zdjęcia", color=AppTheme.ERROR)
+                    else:
+                        confidence = int(verification_result['confidence'] * 100)
+                        hide_loading(page, loading)
+                        show_snackbar(
+                            page,
+                            f"Zdjęcie nie przedstawia tego zabytku (pewność: {confidence}%). Spróbuj innego zdjęcia.",
+                            color=AppTheme.ERROR
+                        )
+                except ImportError:
+                    print("ImageAnalyzer niedostępny. Zapisuję zdjęcie bez weryfikacji.")
+                    result = UserBuildingRepository.save_user_photo(current_user_id, monument.building_id, file_path)
+
+                    if result:
+                        if not has_visited:
+                            UserBuildingRepository.add_visit(current_user_id, monument.building_id)
+                            has_visited = True
+                            visit_button.text = "✓ Zabytek odwiedzony!"
+                            visit_button.icon = ft.icons.CHECK_CIRCLE
+                            visit_button.disabled = True
+                            unvisit_button.visible = True
+
+                        hide_loading(page, loading)
+                        show_snackbar(page, "Zabytek oznaczony jako odwiedzony!", color=AppTheme.SUCCESS)
+
+                        def go_to_profile():
+                            from views.profile_view import create_profile_view
+                            profile_view = create_profile_view(page)
+                            apply_route_change_animation(page, profile_view)
+
+                        show_confirmation_dialog(
+                            page,
+                            "Zdjęcie zapisane",
+                            "Zdjęcie zostało zapisane bez weryfikacji. Czy chcesz przejść do profilu, aby zobaczyć swoje zdjęcie zabytku?",
+                            go_to_profile
+                        )
+                    else:
+                        hide_loading(page, loading)
+                        show_snackbar(page, "Wystąpił błąd podczas zapisywania zdjęcia", color=AppTheme.ERROR)
+
+            except Exception as ex:
+                hide_loading(page, loading)
+                print(f"Błąd podczas weryfikacji zdjęcia: {ex}")
+                import traceback
+                traceback.print_exc()
+                show_snackbar(page, f"Błąd: {str(ex)}", color=AppTheme.ERROR)
+        else:
+            pass
 
     def on_capture_photo(e):
         if not current_user_id:
             show_snackbar(page, "Musisz być zalogowany, aby weryfikować zabytki", color=AppTheme.WARNING)
             return
 
-        try:
-            loading = show_loading(page, "Przygotowywanie aparatu...")
-            time.sleep(0.5)  # Opóźnienie dla efektu
+        file_picker = ft.FilePicker(on_result=on_file_selected)
+        page.overlay.append(file_picker)
+        page.update()
 
-            from views.photo_capture_view import create_photo_capture_view
-            photo_view = create_photo_capture_view(page, monument)
-
-            if photo_view:
-                hide_loading(page, loading)
-                apply_route_change_animation(page, photo_view)
-            else:
-                hide_loading(page, loading)
-                raise ImportError("Nie udało się utworzyć widoku zdjęcia")
-        except ImportError as ex:
-            hide_loading(page, loading)
-            show_snackbar(page, f"Funkcja weryfikacji przez zdjęcie jest w trakcie implementacji: {str(ex)}",
-                          color=AppTheme.WARNING)
-        except Exception as ex:
-            hide_loading(page, loading)
-            show_snackbar(page, f"Wystąpił błąd: {str(ex)}", color=AppTheme.ERROR)
+        file_picker.pick_files(
+            dialog_title="Wybierz zdjęcie zabytku",
+            allowed_extensions=["jpg", "jpeg", "png"],
+            allow_multiple=False
+        )
 
     back_button = create_action_button(
         "Powrót",
@@ -327,8 +445,8 @@ def create_monument_detail_view(page, monument):
     )
 
     verify_button = create_action_button(
-        text="Zweryfikuj przez zdjęcie",
-        icon=ft.icons.CAMERA_ALT,
+        text="Weryfikuj przez zdjęcie",
+        icon=ft.icons.PHOTO_LIBRARY,
         on_click=on_capture_photo,
         color=AppTheme.PRIMARY
     )
@@ -369,10 +487,19 @@ def create_monument_detail_view(page, monument):
         2: "pl. Katedralny 18, 50-329 Wrocław",
         3: "ul. Powstańców Śląskich 95, 53-332 Wrocław"
     }
-    monument_address = monument_addresses.get(monument.building_id, "")
 
-    # Google Maps URL
-    map_url = f"https://www.google.com/maps/search/?api=1&query={monument.name.replace(' ', '+')}"
+    monument_descriptions = {
+        1: "Hala Stulecia (dawniej Hala Ludowa) to historyczny obiekt widowiskowo-sportowy położony we Wrocławiu. Została zaprojektowana przez Maksa Berga i wybudowana w latach 1911-1913. W 2006 roku została wpisana na listę światowego dziedzictwa UNESCO jako jedno z największych dzieł architektury XX wieku.",
+        2: "Archikatedra św. Jana Chrzciciela we Wrocławiu - gotycka katedra, jeden z najważniejszych zabytków architektury gotyckiej w Polsce. Zbudowana w latach 1244-1341 jako trójnawowa bazylika z bazylikowym transeptem. Jest to druga pod względem wysokości świątynia w Polsce.",
+        3: "Sky Tower - najwyższy budynek we Wrocławiu i jeden z najwyższych w Polsce. Ten wieżowiec ma 212 metrów wysokości i 50 pięter. Został zaprojektowany przez pracownię architektoniczną FOLD i oddany do użytku w 2012 roku."
+    }
+
+    monument_address = monument_addresses.get(monument.building_id, "Adres niedostępny")
+
+    if not monument.description or monument.description.strip() == "":
+        monument.description = monument_descriptions.get(monument.building_id, "Brak opisu zabytku.")
+
+    map_url = f"https://www.google.com/maps/search/?api=1&query={monument_address.replace(' ', '+')}"
 
     map_button = create_action_button(
         "Zobacz na Google Maps",
@@ -383,8 +510,9 @@ def create_monument_detail_view(page, monument):
 
     address_text = ft.Text(
         monument_address,
-        size=14,
-        color=ft.colors.GREY_700,
+        size=16,
+        weight=ft.FontWeight.BOLD,
+        color=ft.colors.GREY_800,
         text_align=ft.TextAlign.CENTER,
     )
 
@@ -395,22 +523,85 @@ def create_monument_detail_view(page, monument):
         with_profile=True
     )
 
-    description_container = ft.Container(
-        content=ft.Text(
-            monument.description,
-            size=16,
-            text_align=ft.TextAlign.JUSTIFY,
-        ),
-        padding=15,
-        border_radius=10,
-        bgcolor=ft.colors.WHITE,
-        shadow=ft.BoxShadow(
-            spread_radius=1,
-            blur_radius=5,
-            color=ft.colors.BLACK12,
-            offset=ft.Offset(0, 2)
-        ),
-        margin=ft.margin.only(bottom=20)
+    description_section = ft.Container(
+        content=ft.Column([
+            ft.Row([
+                ft.Icon(ft.icons.DESCRIPTION, size=24, color=AppTheme.PRIMARY),
+                ft.Text(
+                    "Opis",
+                    size=20,
+                    weight=ft.FontWeight.BOLD,
+                    color=AppTheme.TEXT_PRIMARY
+                )
+            ],
+                alignment=ft.MainAxisAlignment.CENTER,
+                spacing=10),
+            ft.Container(
+                content=ft.Text(
+                    monument.description,
+                    size=16,
+                    text_align=ft.TextAlign.JUSTIFY,
+                ),
+                padding=15,
+                border_radius=10,
+                bgcolor=ft.colors.WHITE,
+                shadow=ft.BoxShadow(
+                    spread_radius=1,
+                    blur_radius=5,
+                    color=ft.colors.BLACK12,
+                    offset=ft.Offset(0, 2)
+                ),
+                margin=ft.margin.only(top=10),
+                width=500
+            )
+        ],
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+        margin=ft.margin.only(bottom=20),
+        alignment=ft.alignment.center,
+        width=page.width
+    )
+
+    location_section = ft.Container(
+        content=ft.Column([
+            ft.Row([
+                ft.Icon(ft.icons.PLACE, size=24, color=AppTheme.PRIMARY),
+                ft.Text(
+                    "Lokalizacja",
+                    size=20,
+                    weight=ft.FontWeight.BOLD,
+                    color=AppTheme.TEXT_PRIMARY
+                )
+            ],
+                alignment=ft.MainAxisAlignment.CENTER,
+                spacing=10),
+            ft.Container(
+                content=ft.Column([
+                    address_text,
+                    map_button
+                ],
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    spacing=10,
+                    alignment=ft.MainAxisAlignment.CENTER
+                ),
+                padding=ft.padding.symmetric(vertical=15, horizontal=10),
+                margin=ft.margin.only(top=5),
+                border_radius=10,
+                bgcolor=ft.colors.WHITE,
+                shadow=ft.BoxShadow(
+                    spread_radius=1,
+                    blur_radius=5,
+                    color=ft.colors.BLACK12,
+                    offset=ft.Offset(0, 2)
+                ),
+                alignment=ft.alignment.center,
+                width=500
+            )
+        ],
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            spacing=5),
+        margin=ft.margin.only(bottom=20),
+        alignment=ft.alignment.center,
+        width=page.width
     )
 
     action_buttons = ft.Container(
@@ -425,53 +616,9 @@ def create_monument_detail_view(page, monument):
             spacing=10,
             wrap=True
         ),
-        margin=ft.margin.symmetric(vertical=20)
-    )
-
-    tabs = ft.Tabs(
-        selected_index=0,
-        animation_duration=300,
-        tabs=[
-            ft.Tab(
-                text="Opis",
-                icon=ft.icons.DESCRIPTION,
-                content=description_container
-            ),
-            ft.Tab(
-                text="Lokalizacja",
-                icon=ft.icons.PLACE,
-                content=ft.Container(
-                    content=ft.Column([
-                        ft.Image(
-                            src=f"assets/{monument.building_id}_map.jpg",
-                            width=400,
-                            height=300,
-                            fit=ft.ImageFit.COVER,
-                            border_radius=ft.border_radius.all(10)
-                        ),
-                        ft.Container(
-                            content=address_text,
-                            margin=ft.margin.only(top=10, bottom=10)
-                        ),
-                        map_button
-                    ],
-                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                        spacing=5
-                    ),
-                    padding=15,
-                    margin=ft.margin.only(top=10),
-                    border_radius=10,
-                    bgcolor=ft.colors.WHITE,
-                    shadow=ft.BoxShadow(
-                        spread_radius=1,
-                        blur_radius=5,
-                        color=ft.colors.BLACK12,
-                        offset=ft.Offset(0, 2)
-                    )
-                )
-            )
-        ],
-        expand=1
+        margin=ft.margin.symmetric(vertical=15),
+        width=page.width,
+        alignment=ft.alignment.center
     )
 
     content = ft.Container(
@@ -492,18 +639,26 @@ def create_monument_detail_view(page, monument):
                     offset=ft.Offset(0, 4)
                 ),
                 border_radius=ft.border_radius.all(10),
-                clip_behavior=ft.ClipBehavior.ANTI_ALIAS
+                clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
+                alignment=ft.alignment.center
             ),
 
-            tabs,
+            description_section,
+            location_section,
+
             action_buttons,
-            back_button
+            ft.Container(
+                content=back_button,
+                alignment=ft.alignment.center,
+                width=page.width
+            )
         ],
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-            spacing=0
+            spacing=0,
+            alignment=ft.MainAxisAlignment.CENTER
         ),
-        padding=20,
-        width=600
+        padding=ft.padding.only(left=20, right=20, bottom=20),
+        alignment=ft.alignment.center
     )
 
     return ft.View(

@@ -11,7 +11,7 @@ class UserBuilding:
             return None
 
         user_photo_path = None
-        if 'user_photo_path' in row.keys():
+        if row and 'user_photo_path' in row.keys():
             user_photo_path = row['user_photo_path']
 
         return cls(

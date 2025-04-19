@@ -12,7 +12,8 @@ class UserBuildingRepository:
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT ub.*, b.name, b.description, b.image_path 
+            SELECT ub.user_id, ub.building_id, ub.visit_date, ub.user_photo_path, 
+                   b.name, b.description, b.image_path 
             FROM UserBuilding ub 
             JOIN Building b ON ub.building_id = b.building_id 
             WHERE ub.user_id = ?
@@ -20,13 +21,6 @@ class UserBuildingRepository:
 
         results = cursor.fetchall()
         print(f"Zapytanie zwróciło {len(results)} wyników dla użytkownika {user_id}")
-
-        if results and len(results) > 0:
-            print(f"Dostępne kolumny: {', '.join(results[0].keys())}")
-            for i, result in enumerate(results[:3]):
-                print(f"Wynik {i + 1}:")
-                for key in result.keys():
-                    print(f"  {key}: {result[key]}")
 
         conn.close()
         return results

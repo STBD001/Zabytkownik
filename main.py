@@ -85,7 +85,7 @@ def main(page: ft.Page):
             [
                 ft.Container(
                     content=ft.Column([
-                        ft.Text("Wystąpił błąd", size=24, color=ft.colors.RED, weight=ft.FontWeight.BOLD),
+                        ft.Text("Wystąpił błąd", size=24, color=ft.Colors.RED, weight=ft.FontWeight.BOLD),
                         ft.Text("Spróbuj uruchomić aplikację ponownie.", size=16),
                         ft.ElevatedButton("Odśwież", on_click=lambda _: page.window_close())
                     ],

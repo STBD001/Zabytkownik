@@ -46,7 +46,8 @@ def create_country_view(page, continent):
     continent_countries = countries.get(continent, [])
 
     def on_country_click(e):
-        selected_country = e.control.data
+        selected_country = e.data
+        print(f"Kliknięto kraj: {selected_country}")
 
         for country in continent_countries:
             if country["name"] == selected_country and not country["enabled"]:
@@ -70,13 +71,30 @@ def create_country_view(page, continent):
         apply_route_change_animation(page, city_view)
 
     def go_back(e):
-        apply_route_change_animation(page, page.views[-2], direction="backward")
-        page.views.pop()
-        page.update()
+        print("Powrót z widoku krajów")
+        try:
+            from views.continent_view import create_continent_view
+            continent_view = create_continent_view(page)
+            apply_route_change_animation(page, continent_view, direction="backward")
+
+            # Usuń poprzedni widok
+            if len(page.views) > 1:
+                page.views.pop(0)
+            page.update()
+        except Exception as ex:
+            print(f"Błąd podczas powrotu: {ex}")
+            import traceback
+            traceback.print_exc()
+
+            # Awaryjny powrót
+            page.views.clear()
+            from views.continent_view import create_continent_view
+            page.views.append(create_continent_view(page))
+            page.update()
 
     header = create_header(
         f"Kraje w {continent}",
-        with_back_button=True,
+        with_back_button=False,  # Zmiana - używamy własnego przycisku
         page=page,
         with_profile=True
     )
@@ -84,6 +102,7 @@ def create_country_view(page, continent):
     country_cards = []
 
     for country in continent_countries:
+        # Zawartość karty
         card_content = ft.Container(
             content=ft.Column([
                 ft.Text(
@@ -119,37 +138,43 @@ def create_country_view(page, continent):
             animate=ft.animation.Animation(300, ft.AnimationCurve.EASE_OUT)
         )
 
-        card = ft.Card(
-            content=card_content,
-            elevation=3,
-            margin=ft.margin.all(10),
-            on_click=on_country_click,
-            data=country["name"]
+        # Używamy GestureDetector zamiast on_click w Card
+        card_with_gesture = ft.GestureDetector(
+            content=ft.Card(
+                content=card_content,
+                elevation=3,
+                margin=ft.margin.all(10),
+            ),
+            on_tap=lambda e, name=country["name"]: on_country_click(type('obj', (object,), {'data': name})),
+            # Usunięto mouse_cursor
         )
 
-        def on_hover_factory(country_enabled):
+        def create_hover_handler(card_widget, country_enabled):
             def on_hover(e):
-                if e.data == "true":
-                    e.control.elevation = 8
-                    e.control.content.scale = 1.05
-                    e.control.content.bgcolor = ft.colors.BLUE_50 if country_enabled else ft.colors.GREY_100
-                else:
-                    e.control.elevation = 3
-                    e.control.content.scale = 1.0
-                    e.control.content.bgcolor = ft.colors.WHITE
-                e.control.update()
+                try:
+                    if e.data == "true":
+                        card_widget.elevation = 8
+                        card_widget.content.scale = 1.05
+                        card_widget.content.bgcolor = ft.colors.BLUE_50 if country_enabled else ft.colors.GREY_100
+                    else:
+                        card_widget.elevation = 3
+                        card_widget.content.scale = 1.0
+                        card_widget.content.bgcolor = ft.colors.WHITE
+                    card_widget.update()
+                except Exception as err:
+                    print(f"Błąd w obsłudze hover: {err}")
 
             return on_hover
 
-        card.on_hover = on_hover_factory(country["enabled"])
+        # Zastosuj obsługę hover do karty
+        card_with_gesture.content.on_hover = create_hover_handler(card_with_gesture.content, country["enabled"])
+        country_cards.append(card_with_gesture)
 
-        country_cards.append(card)
-
-    country_grid = ft.Wrap(
-        spacing=10,
-        run_spacing=10,
-        alignment=ft.WrapAlignment.CENTER,
-        controls=country_cards
+    country_grid = ft.Row(
+        controls=country_cards,
+        alignment=ft.MainAxisAlignment.CENTER,
+        spacing=20,
+        wrap=True
     )
 
     back_button = create_action_button(

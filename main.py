@@ -4,6 +4,7 @@ from database.db_init import initialize_database, seed_database
 from database.db_update import update_database_schema
 from views.welcome_view import create_welcome_view
 from ui_helpers import AppTheme, show_loading, hide_loading
+from setup_reference_dirs import setup_reference_directories
 
 
 class SimpleSession:
@@ -34,6 +35,9 @@ def main(page: ft.Page):
         initialize_database()
         seed_database()
         update_database_schema()
+
+        # Inicjalizacja struktury katalogów dla zdjęć referencyjnych
+        setup_reference_directories()
 
         try:
             from db_update_fix import fix_database

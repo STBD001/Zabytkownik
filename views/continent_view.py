@@ -251,7 +251,7 @@ def create_continent_view(page):
                         offset=ft.Offset(0, 3)
                     )
                 else:
-                    button.bgcolor = color if enabled else ft.colors.GREY_400
+                    button.bgcolor = color if enabled else ft.colors.GREY_700
                     button.scale = 1.0
                     button.shadow = ft.BoxShadow(
                         spread_radius=1,
@@ -268,7 +268,8 @@ def create_continent_view(page):
     def create_hover_handler(container, color, enabled, button):
         def hover_handler(e):
             try:
-                if e.data == "true" and enabled:
+                if e.data == "true":
+                    # Zawsze pokazujemy efekt hover, niezależnie czy kontynent jest włączony
                     container.bgcolor = ft.colors.with_opacity(0.1, color)
                     container.scale = 1.05
                     container.shadow = ft.BoxShadow(
@@ -338,10 +339,11 @@ def create_continent_view(page):
             "Dostępny" if continent_data["enabled"] else "Wkrótce dostępny",
             size=12,
             color=AppTheme.SUCCESS if continent_data["enabled"] else AppTheme.WARNING,
-            italic=True
+            italic=True,
+            weight=ft.FontWeight.BOLD  # Pogrubiony tekst statusu
         )
 
-        # Przycisk z ikoną strzałki (dla niedostępnych kontynentów)
+        # Przycisk z ikoną strzałki
         icon_text = ft.Row(
             [
                 ft.Icon(ft.icons.ARROW_FORWARD, size=16, color=ft.colors.WHITE),
@@ -351,32 +353,64 @@ def create_continent_view(page):
             alignment=ft.MainAxisAlignment.CENTER,
         )
 
-        # Przycisk do nawigacji do kontynentu - poprawiony wygląd
-        continent_button = ft.Container(
-            content=icon_text,
-            width=140,
-            height=40,
-            border_radius=5,
-            bgcolor=continent_data["color"] if continent_data["enabled"] else ft.colors.GREY_400,
-            alignment=ft.alignment.center,
-            on_click=on_continent_click if continent_data["enabled"] else None,
-            data=continent_data["name"],
-            shadow=ft.BoxShadow(
-                spread_radius=1,
-                blur_radius=4,
-                color=ft.colors.BLACK12,
-                offset=ft.Offset(0, 2)
-            ),
-            animate=ft.animation.Animation(200, ft.AnimationCurve.EASE_OUT),
-        )
+        # Poprawione przyciski dla niedostępnych kontynentów
+        if continent_data["enabled"]:
+            # Przyciski dla dostępnych kontynentów - kolor zgodny z kontynentem
+            continent_button = ft.Container(
+                content=icon_text,
+                width=140,
+                height=40,
+                border_radius=5,
+                bgcolor=continent_data["color"],
+                alignment=ft.alignment.center,
+                on_click=on_continent_click if continent_data["enabled"] else None,
+                data=continent_data["name"],
+                shadow=ft.BoxShadow(
+                    spread_radius=1,
+                    blur_radius=4,
+                    color=ft.colors.BLACK12,
+                    offset=ft.Offset(0, 2)
+                ),
+                animate=ft.animation.Animation(200, ft.AnimationCurve.EASE_OUT),
+            )
+        else:
+            # Przyciski dla niedostępnych kontynentów - lepiej widoczne
+            continent_button = ft.Container(
+                content=ft.Row(
+                    [
+                        ft.Icon(ft.icons.LOCK_CLOCK, size=16, color=ft.colors.WHITE),
+                        ft.Text("Wkrótce", color=ft.colors.WHITE, weight=ft.FontWeight.BOLD)
+                    ],
+                    spacing=5,
+                    alignment=ft.MainAxisAlignment.CENTER,
+                ),
+                width=140,
+                height=40,
+                border_radius=5,
+                bgcolor=ft.colors.GREY_700,  # Ciemniejszy szary kolor
+                alignment=ft.alignment.center,
+                on_click=on_continent_click,
+                data=continent_data["name"],
+                shadow=ft.BoxShadow(
+                    spread_radius=1,
+                    blur_radius=4,
+                    color=ft.colors.BLACK12,
+                    offset=ft.Offset(0, 2)
+                ),
+                animate=ft.animation.Animation(200, ft.AnimationCurve.EASE_OUT),
+            )
+
+            # Dodaj ozdobny border dla przycisków niedostępnych kontynentów
+            continent_button.border = ft.border.all(1, continent_data["color"])
 
         # Dodaj efekt hover do przycisku
         continent_button.on_hover = create_button_hover_handler(
             continent_button,
-            continent_data["color"],
+            continent_data["color"] if continent_data["enabled"] else ft.colors.GREY_700,
             continent_data["enabled"]
         )
 
+        # ZMIANA: Zwiększona wysokość karty, aby pomieścić przyciski
         # Karta kontynentu w formie kontenera - poprawiony wygląd
         continent_card = ft.Container(
             content=ft.Column([
@@ -396,8 +430,8 @@ def create_continent_view(page):
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 spacing=10
             ),
-            width=180,
-            height=250,
+            width=190,  # Zwiększona szerokość karty
+            height=270,  # Zwiększona wysokość karty z 250 na 270
             padding=20,
             margin=10,
             border_radius=15,
@@ -412,6 +446,9 @@ def create_continent_view(page):
             animate=ft.animation.Animation(300, ft.AnimationCurve.EASE_OUT),
         )
 
+        # Dodaj delikatne obramowanie w kolorze kontynentu
+        continent_card.border = ft.border.all(2, ft.colors.with_opacity(0.3, continent_data["color"]))
+
         # Dodaj efekt hover do kontenera
         continent_card.on_hover = create_hover_handler(
             continent_card,
@@ -422,17 +459,19 @@ def create_continent_view(page):
 
         continent_cards.append(continent_card)
 
+    # ZMIANA: Dostosowany układ kontynentów - zwiększony spacing i margines
     # Układ kontynentów w dwóch rzędach
     continent_grid = ft.Column([
         ft.Row(
             continent_cards[:3],
             alignment=ft.MainAxisAlignment.CENTER,
-            spacing=10
+            spacing=15  # Zwiększony spacing między kartami
         ),
+        ft.Container(height=10),  # Dodany odstęp między rzędami
         ft.Row(
             continent_cards[3:],
             alignment=ft.MainAxisAlignment.CENTER,
-            spacing=10
+            spacing=15  # Zwiększony spacing między kartami
         )
     ], spacing=10)
 
@@ -458,6 +497,7 @@ def create_continent_view(page):
         margin=ft.margin.only(top=20)
     )
 
+    # ZMIANA: Dodano więcej przestrzeni dla całego kontenera
     view = ft.View(
         "/continents",
         [
@@ -481,7 +521,7 @@ def create_continent_view(page):
                     continent_grid,
                     footer
                 ]),
-                padding=20,
+                padding=25,
                 expand=True
             )
         ],

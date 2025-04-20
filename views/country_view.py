@@ -10,11 +10,10 @@ def create_country_view(page, continent):
     countries = {
         "Europa": [
             {"name": "Polska", "flag": "🇵🇱", "enabled": True},
-            {"name": "Niemcy", "flag": "🇩🇪", "enabled": True},
+            {"name": "Niemcy", "flag": "🇩🇪", "enabled": False},
             {"name": "Francja", "flag": "🇫🇷", "enabled": False},
             {"name": "Włochy", "flag": "🇮🇹", "enabled": False},
             {"name": "Hiszpania", "flag": "🇪🇸", "enabled": False},
-            {"name": "Wielka Brytania", "flag": "🇬🇧", "enabled": False}
         ],
         "Azja": [
             {"name": "Japonia", "flag": "🇯🇵", "enabled": False},

@@ -127,7 +127,38 @@ def create_monument_card(monument, on_click=None, show_map_button=True, show_det
     if show_map_button:
         def on_map_click(e):
             building_id = e.control.data
-            pass
+
+            # Import funkcji ukryte wewnątrz funkcji, aby uniknąć importów cyklicznych
+            from views.map_view import create_map_view
+
+            # Pobierz miasto z opisu zabytku lub ustaw domyślne
+            city = None
+            if monument.description and "Wrocław" in monument.description:
+                city = "Wrocław"
+
+            # Pokaż komunikat ładowania
+            loading = show_loading(e.page, "Wczytywanie mapy...")
+
+            try:
+                import time
+                time.sleep(0.5)  # Krótkie opóźnienie dla UI
+
+                # Utwórz widok mapy i pokaż go
+                map_view = create_map_view(e.page, city)
+
+                if map_view:
+                    hide_loading(e.page, loading)
+                    apply_route_change_animation(e.page, map_view)
+                else:
+                    hide_loading(e.page, loading)
+                    show_snackbar(e.page, "Nie udało się utworzyć widoku mapy", color=AppTheme.ERROR)
+            except Exception as ex:
+                print(f"Błąd podczas tworzenia widoku mapy: {ex}")
+                import traceback
+                traceback.print_exc()
+
+                hide_loading(e.page, loading)
+                show_snackbar(e.page, f"Wystąpił błąd: {str(ex)}", color=AppTheme.ERROR)
 
         map_button = ft.ElevatedButton(
             text="Na mapie",
@@ -192,12 +223,34 @@ def create_monument_card(monument, on_click=None, show_map_button=True, show_det
     card = ft.Card(
         content=card_content,
         elevation=4,
-        margin=AppTheme.PADDING_SM,
-        animate=ft.animation.Animation(
-            duration=AppTheme.ANIMATION_DURATION_MS,
-            curve=ft.AnimationCurve.EASE_IN_OUT
-        )
+        margin=AppTheme.PADDING_SM
     )
+
+    def on_hover(e):
+        if e.data == "true":
+            card.elevation = 8
+            card.content.scale = 1.03
+            e.control.update()
+        else:
+            card.elevation = 4
+            card.content.scale = 1.0
+            e.control.update()
+
+    card.on_hover = on_hover
+    return card
+
+    def on_hover(e):
+        if e.data == "true":
+            card.elevation = 8
+            card.content.scale = 1.03
+            e.control.update()
+        else:
+            card.elevation = 4
+            card.content.scale = 1.0
+            e.control.update()
+
+    card.on_hover = on_hover
+    return card
 
     def on_hover(e):
         if e.data == "true":

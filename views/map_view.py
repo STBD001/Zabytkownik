@@ -50,7 +50,9 @@ def create_map_view(page, city=None, user_id=None):
         3: {"lat": 51.099731, "lng": 17.028114}
     }
 
-    if city and not user_id:
+    if city and city.lower() == "wrocław":
+        buildings_to_show = [b for b in all_buildings if b.building_id in [1, 2, 3]]
+    elif city and not user_id:
         buildings_to_show = [building for building in filtered_buildings
                              if city and city.lower() in (building.description or "").lower()]
     else:
@@ -64,6 +66,17 @@ def create_map_view(page, city=None, user_id=None):
             building.latitude = coords[building.building_id]["lat"]
             building.longitude = coords[building.building_id]["lng"]
             buildings_with_coords.append(building)
+
+    if city and city.lower() == "wrocław":
+        existing_ids = [b.building_id for b in buildings_with_coords]
+        for building_id in [1, 2, 3]:
+            if building_id not in existing_ids:
+                for b in all_buildings:
+                    if b.building_id == building_id:
+                        b.latitude = coords[building_id]["lat"]
+                        b.longitude = coords[building_id]["lng"]
+                        buildings_with_coords.append(b)
+                        break
 
     if len(buildings_with_coords) == 0:
         expected_ids = {1, 2, 3}
@@ -343,13 +356,34 @@ def create_map_view(page, city=None, user_id=None):
 
     def go_back(e):
         try:
-            os.remove(interactive_map_path)
-        except Exception as e:
-            pass
+            try:
+                if os.path.exists(interactive_map_path):
+                    os.remove(interactive_map_path)
+                    print(f"Usunięto tymczasowy plik mapy: {interactive_map_path}")
+            except Exception as file_error:
+                print(f"Nie udało się usunąć pliku mapy: {file_error}")
 
-        apply_route_change_animation(page, page.views[-2], direction="backward")
-        page.views.pop()
-        page.update()
+            if len(page.views) > 1:
+                page.views.pop()
+                page.update()
+            else:
+                from views.continent_view import create_continent_view
+                continent_view = create_continent_view(page)
+                page.views.clear()
+                page.views.append(continent_view)
+                page.update()
+        except Exception as ex:
+            print(f"Błąd podczas obsługi przycisku powrotu: {ex}")
+            import traceback
+            traceback.print_exc()
+
+            try:
+                from views.welcome_view import create_welcome_view
+                page.views.clear()
+                page.views.append(create_welcome_view(page))
+                page.update()
+            except Exception as e:
+                show_snackbar(page, f"Wystąpił błąd podczas powrotu: {str(e)}", color=AppTheme.ERROR)
 
     try:
         interactive_map_path = create_interactive_map()
@@ -402,21 +436,46 @@ def create_map_view(page, city=None, user_id=None):
         with_profile=True
     )
 
-    map_button = create_action_button(
-        "Otwórz pełną mapę interaktywną",
-        icon=ft.icons.MAP,
+    map_button = ft.ElevatedButton(
+        content=ft.Row(
+            [
+                ft.Icon(ft.icons.MAP, color=ft.colors.WHITE),
+                ft.Text("Otwórz pełną mapę interaktywną", color=ft.colors.WHITE, weight=ft.FontWeight.BOLD)
+            ],
+            spacing=10,
+            alignment=ft.MainAxisAlignment.CENTER,
+        ),
         on_click=open_interactive_map,
-        color=AppTheme.SUCCESS
+        style=ft.ButtonStyle(
+            color=ft.colors.WHITE,
+            bgcolor=AppTheme.SUCCESS,
+            padding=ft.padding.symmetric(horizontal=25, vertical=15),
+            shape=ft.RoundedRectangleBorder(radius=10),
+            elevation=5,
+            shadow_color=ft.colors.BLACK26
+        )
     )
 
-    back_button = create_action_button(
-        "Powrót",
-        icon=ft.icons.ARROW_BACK,
+    back_button = ft.ElevatedButton(
+        content=ft.Row(
+            [
+                ft.Icon(ft.icons.ARROW_BACK, color=ft.colors.WHITE),
+                ft.Text("Powrót", color=ft.colors.WHITE, weight=ft.FontWeight.BOLD)
+            ],
+            spacing=10,
+            alignment=ft.MainAxisAlignment.CENTER,
+        ),
         on_click=go_back,
-        color=AppTheme.SECONDARY
+        style=ft.ButtonStyle(
+            color=ft.colors.WHITE,
+            bgcolor=AppTheme.SECONDARY,
+            padding=ft.padding.symmetric(horizontal=25, vertical=15),
+            shape=ft.RoundedRectangleBorder(radius=10),
+            elevation=5,
+            shadow_color=ft.colors.BLACK26
+        )
     )
 
-    # Zmodyfikowana funkcja obsługi kliknięcia na zabytek
     def on_building_click(e, building_id):
         try:
             selected_building = None
@@ -455,7 +514,6 @@ def create_map_view(page, city=None, user_id=None):
         except Exception as ex:
             show_snackbar(page, f"Błąd: {str(ex)}", color=AppTheme.ERROR)
 
-    # Zmodyfikowana funkcja otwierania mapy dla konkretnego budynku
     def open_building_on_map(e, building_id):
         try:
             selected_building = None
@@ -493,32 +551,58 @@ def create_map_view(page, city=None, user_id=None):
         lat = building.latitude
         lng = building.longitude
 
-        # Zaktualizowane przyciski z domknięciem
-        details_button = create_action_button(
-            "Szczegóły",
-            icon=ft.icons.INFO,
+        details_button = ft.ElevatedButton(
+            content=ft.Row(
+                [
+                    ft.Icon(ft.icons.INFO, color=ft.colors.WHITE, size=16),
+                    ft.Text("Szczegóły", color=ft.colors.WHITE, weight=ft.FontWeight.BOLD)
+                ],
+                spacing=5,
+                alignment=ft.MainAxisAlignment.CENTER,
+            ),
             on_click=lambda e, bid=building.building_id: on_building_click(e, bid),
-            color=AppTheme.PRIMARY,
-            width=120
+            style=ft.ButtonStyle(
+                color=ft.colors.WHITE,
+                bgcolor=AppTheme.PRIMARY,
+                padding=ft.padding.symmetric(horizontal=15, vertical=15),
+                shape=ft.RoundedRectangleBorder(radius=8),
+                elevation=3,
+                shadow_color=ft.colors.BLACK26
+            ),
+            width=160,
+            height=45
         )
 
-        map_button_individual = create_action_button(
-            "Na mapie",
-            icon=ft.icons.PLACE,
+        map_button_individual = ft.ElevatedButton(
+            content=ft.Row(
+                [
+                    ft.Icon(ft.icons.PLACE, color=ft.colors.WHITE, size=16),
+                    ft.Text("Na mapie", color=ft.colors.WHITE, weight=ft.FontWeight.BOLD)
+                ],
+                spacing=5,
+                alignment=ft.MainAxisAlignment.CENTER,
+            ),
             on_click=lambda e, bid=building.building_id: open_building_on_map(e, bid),
-            color=AppTheme.SECONDARY,
-            width=120
+            style=ft.ButtonStyle(
+                color=ft.colors.WHITE,
+                bgcolor=AppTheme.SECONDARY,
+                padding=ft.padding.symmetric(horizontal=15, vertical=15),
+                shape=ft.RoundedRectangleBorder(radius=8),
+                elevation=3,
+                shadow_color=ft.colors.BLACK26
+            ),
+            width=160,
+            height=45
         )
 
         buttons_container = ft.Container(
-            content=ft.Column([
-                details_button,
-                ft.Container(height=8),
-                map_button_individual
-            ],
-                spacing=0,
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-            padding=ft.padding.only(top=8)
+            content=ft.Column(
+                [details_button, map_button_individual],
+                spacing=15,
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER
+            ),
+            padding=ft.padding.only(top=15, bottom=15),
+            width=180
         )
 
         card_content = ft.Container(
@@ -530,7 +614,7 @@ def create_map_view(page, city=None, user_id=None):
                     text_align=ft.TextAlign.CENTER
                 ),
                 ft.Text(
-                    f"Lokalizacja: {lat}, {lng}",
+                    f"Lokalizacja: {lat:.6f}, {lng:.6f}",
                     size=12,
                     text_align=ft.TextAlign.CENTER,
                     color=AppTheme.TEXT_HINT
@@ -559,6 +643,7 @@ def create_map_view(page, city=None, user_id=None):
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER),
             padding=15,
             width=200,
+            height=370,
             border_radius=10,
             bgcolor=ft.colors.WHITE,
             animate=ft.animation.Animation(300, ft.AnimationCurve.EASE_OUT)
@@ -612,14 +697,15 @@ def create_map_view(page, city=None, user_id=None):
             )
         )
 
-    building_grid = ft.GridView(
-        runs_count=3,
-        max_extent=250,
-        child_aspect_ratio=0.65,
-        spacing=15,
-        run_spacing=15,
-        padding=20,
-        controls=building_cards
+    building_grid = ft.Container(
+        content=ft.Row(
+            controls=building_cards,
+            alignment=ft.MainAxisAlignment.CENTER,
+            spacing=20,
+            wrap=True
+        ),
+        alignment=ft.alignment.center,
+        expand=True
     )
 
     title_text = f"Zabytki - {city}" if city else "Wszystkie zabytki"
@@ -668,7 +754,7 @@ def create_map_view(page, city=None, user_id=None):
         ),
         animate=ft.animation.Animation(500, ft.AnimationCurve.EASE_OUT),
         animate_opacity=ft.animation.Animation(800, ft.AnimationCurve.EASE_OUT),
-        opacity=1  # Ustawiam od razu na 1, usuwam run_task
+        opacity=1
     )
 
     action_buttons = ft.Row(
@@ -696,8 +782,8 @@ def create_map_view(page, city=None, user_id=None):
 
             ft.Container(
                 content=building_grid,
-                height=480,
-                padding=10,
+                height=550,
+                padding=20,
                 border=ft.border.all(1, ft.colors.GREY_300),
                 border_radius=15,
                 margin=ft.margin.only(bottom=20),
@@ -707,13 +793,15 @@ def create_map_view(page, city=None, user_id=None):
                     blur_radius=5,
                     color=ft.colors.BLACK12,
                     offset=ft.Offset(0, 2)
-                )
+                ),
+                alignment=ft.alignment.center
             ),
 
             action_buttons
         ]),
         padding=20,
-        expand=True
+        expand=True,
+        alignment=ft.alignment.center
     )
 
     return ft.View(

@@ -15,6 +15,18 @@ class AppTheme:
     TEXT_SECONDARY = ft.colors.GREY_800
     TEXT_HINT = ft.colors.GREY_600
 
+    DARK_PRIMARY = ft.colors.BLUE_300
+    DARK_SECONDARY = ft.colors.INDIGO_300
+    DARK_BACKGROUND = ft.colors.GREY_900
+    DARK_SUCCESS = ft.colors.GREEN_400
+    DARK_ERROR = ft.colors.RED_400
+    DARK_WARNING = ft.colors.ORANGE_400
+    DARK_INFO = ft.colors.BLUE_300
+
+    DARK_TEXT_PRIMARY = ft.colors.WHITE
+    DARK_TEXT_SECONDARY = ft.colors.GREY_300
+    DARK_TEXT_HINT = ft.colors.GREY_400
+
     BORDER_RADIUS_SM = 5
     BORDER_RADIUS_MD = 10
     BORDER_RADIUS_LG = 15
@@ -25,20 +37,72 @@ class AppTheme:
 
     ANIMATION_DURATION_MS = 300
 
+    _DARK_MODE = False
+
+    @classmethod
+    def toggle_dark_mode(cls):
+        cls._DARK_MODE = not cls._DARK_MODE
+        return cls._DARK_MODE
+
+    @classmethod
+    def is_dark_mode(cls):
+        return cls._DARK_MODE
+
+    @classmethod
+    def get_primary(cls):
+        return cls.DARK_PRIMARY if cls._DARK_MODE else cls.PRIMARY
+
+    @classmethod
+    def get_secondary(cls):
+        return cls.DARK_SECONDARY if cls._DARK_MODE else cls.SECONDARY
+
+    @classmethod
+    def get_background(cls):
+        return cls.DARK_BACKGROUND if cls._DARK_MODE else cls.BACKGROUND
+
+    @classmethod
+    def get_success(cls):
+        return cls.DARK_SUCCESS if cls._DARK_MODE else cls.SUCCESS
+
+    @classmethod
+    def get_error(cls):
+        return cls.DARK_ERROR if cls._DARK_MODE else cls.ERROR
+
+    @classmethod
+    def get_warning(cls):
+        return cls.DARK_WARNING if cls._DARK_MODE else cls.WARNING
+
+    @classmethod
+    def get_info(cls):
+        return cls.DARK_INFO if cls._DARK_MODE else cls.INFO
+
+    @classmethod
+    def get_text_primary(cls):
+        return cls.DARK_TEXT_PRIMARY if cls._DARK_MODE else cls.TEXT_PRIMARY
+
+    @classmethod
+    def get_text_secondary(cls):
+        return cls.DARK_TEXT_SECONDARY if cls._DARK_MODE else cls.TEXT_SECONDARY
+
+    @classmethod
+    def get_text_hint(cls):
+        return cls.DARK_TEXT_HINT if cls._DARK_MODE else cls.TEXT_HINT
+
     @staticmethod
     def create_theme():
+        dark_mode = AppTheme._DARK_MODE
         return ft.Theme(
             color_scheme=ft.ColorScheme(
-                primary=AppTheme.PRIMARY,
-                on_primary=ft.colors.WHITE,
-                secondary=AppTheme.SECONDARY,
-                on_secondary=ft.colors.WHITE,
-                surface=ft.colors.WHITE,
-                on_surface=ft.colors.BLACK,
-                background=AppTheme.BACKGROUND,
-                on_background=ft.colors.BLACK,
-                error=AppTheme.ERROR,
-                on_error=ft.colors.WHITE,
+                primary=AppTheme.DARK_PRIMARY if dark_mode else AppTheme.PRIMARY,
+                on_primary=ft.colors.BLACK if dark_mode else ft.colors.WHITE,
+                secondary=AppTheme.DARK_SECONDARY if dark_mode else AppTheme.SECONDARY,
+                on_secondary=ft.colors.BLACK if dark_mode else ft.colors.WHITE,
+                surface=ft.colors.GREY_900 if dark_mode else ft.colors.WHITE,
+                on_surface=ft.colors.WHITE if dark_mode else ft.colors.BLACK,
+                background=AppTheme.DARK_BACKGROUND if dark_mode else AppTheme.BACKGROUND,
+                on_background=ft.colors.WHITE if dark_mode else ft.colors.BLACK,
+                error=AppTheme.DARK_ERROR if dark_mode else AppTheme.ERROR,
+                on_error=ft.colors.BLACK if dark_mode else ft.colors.WHITE,
             ),
             visual_density=ft.VisualDensity.COMFORTABLE,
             use_material3=True
@@ -53,7 +117,7 @@ def create_header(title, with_back_button=False, page=None, with_profile=False, 
             ft.IconButton(
                 icon=ft.icons.ARROW_BACK,
                 on_click=lambda e: page.views.pop() or page.update(),
-                icon_color=AppTheme.PRIMARY
+                icon_color=AppTheme.get_primary()
             )
         )
 
@@ -62,7 +126,7 @@ def create_header(title, with_back_button=False, page=None, with_profile=False, 
             title,
             size=24,
             weight=ft.FontWeight.BOLD,
-            color=AppTheme.TEXT_PRIMARY,
+            color=AppTheme.get_text_primary(),
             text_align=ft.TextAlign.CENTER,
             expand=True
         )
@@ -73,7 +137,7 @@ def create_header(title, with_back_button=False, page=None, with_profile=False, 
             ft.IconButton(
                 icon=ft.icons.PERSON,
                 on_click=lambda e: show_profile(e, page),
-                icon_color=AppTheme.PRIMARY,
+                icon_color=AppTheme.get_primary(),
                 tooltip="Mój profil"
             )
         )
@@ -83,10 +147,23 @@ def create_header(title, with_back_button=False, page=None, with_profile=False, 
             ft.IconButton(
                 icon=ft.icons.LOGOUT,
                 on_click=lambda e: logout(e, page),
-                icon_color=AppTheme.ERROR,
+                icon_color=AppTheme.get_error(),
                 tooltip="Wyloguj"
             )
         )
+
+    controls.append(
+        ft.IconButton(
+            icon=ft.icons.DARK_MODE if not AppTheme.is_dark_mode() else ft.icons.LIGHT_MODE,
+            on_click=lambda e: toggle_theme(e, page),
+            icon_color=AppTheme.get_primary(),
+            tooltip="Zmień motyw"
+        )
+    )
+
+    background_color = ft.colors.GREY_800 if AppTheme.is_dark_mode() else ft.colors.WHITE
+    gradient_colors = [ft.colors.GREY_800, ft.colors.GREY_900] if AppTheme.is_dark_mode() else [ft.colors.BLUE_100,
+                                                                                                ft.colors.WHITE]
 
     return ft.Container(
         content=ft.Row(controls, alignment=ft.MainAxisAlignment.CENTER),
@@ -96,19 +173,32 @@ def create_header(title, with_back_button=False, page=None, with_profile=False, 
         gradient=ft.LinearGradient(
             begin=ft.alignment.top_center,
             end=ft.alignment.bottom_center,
-            colors=[ft.colors.BLUE_100, ft.colors.WHITE]
+            colors=gradient_colors
         ),
         shadow=ft.BoxShadow(
             spread_radius=1,
             blur_radius=5,
-            color=ft.colors.BLACK12,
+            color=ft.colors.BLACK38,
             offset=ft.Offset(0, 2)
         )
     )
 
 
+def toggle_theme(e, page):
+    dark_mode = AppTheme.toggle_dark_mode()
+    page.theme = AppTheme.create_theme()
+    page.theme_mode = ft.ThemeMode.DARK if dark_mode else ft.ThemeMode.LIGHT
+
+    e.control.icon = ft.icons.LIGHT_MODE if dark_mode else ft.icons.DARK_MODE
+    page.update()
+
+
 def create_monument_card(monument, on_click=None, show_map_button=True, show_details_button=True):
     buttons = []
+
+    primary_color = AppTheme.get_primary()
+    secondary_color = AppTheme.get_secondary()
+    text_color = ft.colors.WHITE if AppTheme.is_dark_mode() else ft.colors.WHITE
 
     if show_details_button:
         details_button = ft.ElevatedButton(
@@ -116,8 +206,8 @@ def create_monument_card(monument, on_click=None, show_map_button=True, show_det
             on_click=on_click,
             data=monument.building_id,
             style=ft.ButtonStyle(
-                color=ft.colors.WHITE,
-                bgcolor=AppTheme.PRIMARY,
+                color=text_color,
+                bgcolor=primary_color,
                 shape=ft.RoundedRectangleBorder(radius=AppTheme.BORDER_RADIUS_SM)
             ),
             width=120
@@ -128,22 +218,18 @@ def create_monument_card(monument, on_click=None, show_map_button=True, show_det
         def on_map_click(e):
             building_id = e.control.data
 
-            # Import funkcji ukryte wewnątrz funkcji, aby uniknąć importów cyklicznych
             from views.map_view import create_map_view
 
-            # Pobierz miasto z opisu zabytku lub ustaw domyślne
             city = None
             if monument.description and "Wrocław" in monument.description:
                 city = "Wrocław"
 
-            # Pokaż komunikat ładowania
             loading = show_loading(e.page, "Wczytywanie mapy...")
 
             try:
                 import time
-                time.sleep(0.5)  # Krótkie opóźnienie dla UI
+                time.sleep(0.5)
 
-                # Utwórz widok mapy i pokaż go
                 map_view = create_map_view(e.page, city)
 
                 if map_view:
@@ -151,14 +237,14 @@ def create_monument_card(monument, on_click=None, show_map_button=True, show_det
                     apply_route_change_animation(e.page, map_view)
                 else:
                     hide_loading(e.page, loading)
-                    show_snackbar(e.page, "Nie udało się utworzyć widoku mapy", color=AppTheme.ERROR)
+                    show_snackbar(e.page, "Nie udało się utworzyć widoku mapy", color=AppTheme.get_error())
             except Exception as ex:
                 print(f"Błąd podczas tworzenia widoku mapy: {ex}")
                 import traceback
                 traceback.print_exc()
 
                 hide_loading(e.page, loading)
-                show_snackbar(e.page, f"Wystąpił błąd: {str(ex)}", color=AppTheme.ERROR)
+                show_snackbar(e.page, f"Wystąpił błąd: {str(ex)}", color=AppTheme.get_error())
 
         map_button = ft.ElevatedButton(
             text="Na mapie",
@@ -166,8 +252,8 @@ def create_monument_card(monument, on_click=None, show_map_button=True, show_det
             on_click=on_map_click,
             data=monument.building_id,
             style=ft.ButtonStyle(
-                color=ft.colors.WHITE,
-                bgcolor=AppTheme.SECONDARY,
+                color=text_color,
+                bgcolor=secondary_color,
                 shape=ft.RoundedRectangleBorder(radius=AppTheme.BORDER_RADIUS_SM)
             ),
             width=120
@@ -183,13 +269,17 @@ def create_monument_card(monument, on_click=None, show_map_button=True, show_det
         padding=ft.padding.only(top=8)
     )
 
+    bg_color = ft.colors.GREY_800 if AppTheme.is_dark_mode() else ft.colors.WHITE
+    text_color = AppTheme.get_text_primary()
+
     card_content = ft.Container(
         content=ft.Column([
             ft.Text(
                 monument.name,
                 size=16,
                 weight=ft.FontWeight.BOLD,
-                text_align=ft.TextAlign.CENTER
+                text_align=ft.TextAlign.CENTER,
+                color=text_color
             ),
             ft.Container(
                 content=ft.Image(
@@ -204,7 +294,7 @@ def create_monument_card(monument, on_click=None, show_map_button=True, show_det
                 shadow=ft.BoxShadow(
                     spread_radius=1,
                     blur_radius=2,
-                    color=ft.colors.BLACK12,
+                    color=ft.colors.BLACK26,
                     offset=ft.Offset(0, 1)
                 )
             ),
@@ -214,6 +304,7 @@ def create_monument_card(monument, on_click=None, show_map_button=True, show_det
             horizontal_alignment=ft.CrossAxisAlignment.CENTER),
         padding=AppTheme.PADDING_MD,
         width=200,
+        bgcolor=bg_color,
         animate=ft.animation.Animation(
             duration=AppTheme.ANIMATION_DURATION_MS,
             curve=ft.AnimationCurve.EASE_IN_OUT
@@ -230,36 +321,12 @@ def create_monument_card(monument, on_click=None, show_map_button=True, show_det
         if e.data == "true":
             card.elevation = 8
             card.content.scale = 1.03
+            card.content.bgcolor = ft.colors.GREY_900 if AppTheme.is_dark_mode() else ft.colors.BLUE_50
             e.control.update()
         else:
             card.elevation = 4
             card.content.scale = 1.0
-            e.control.update()
-
-    card.on_hover = on_hover
-    return card
-
-    def on_hover(e):
-        if e.data == "true":
-            card.elevation = 8
-            card.content.scale = 1.03
-            e.control.update()
-        else:
-            card.elevation = 4
-            card.content.scale = 1.0
-            e.control.update()
-
-    card.on_hover = on_hover
-    return card
-
-    def on_hover(e):
-        if e.data == "true":
-            card.elevation = 8
-            card.content.scale = 1.03
-            e.control.update()
-        else:
-            card.elevation = 4
-            card.content.scale = 1.0
+            card.content.bgcolor = bg_color
             e.control.update()
 
     card.on_hover = on_hover
@@ -268,14 +335,18 @@ def create_monument_card(monument, on_click=None, show_map_button=True, show_det
 
 def create_action_button(text, icon=None, on_click=None, color=None, width=None):
     if color is None:
-        color = AppTheme.PRIMARY
+        color = AppTheme.get_primary()
+
+    text_color = ft.colors.WHITE
+    if AppTheme.is_dark_mode() and color == AppTheme.get_primary():
+        text_color = ft.colors.BLACK
 
     return ft.ElevatedButton(
         text=text,
         icon=icon,
         on_click=on_click,
         style=ft.ButtonStyle(
-            color=ft.colors.WHITE,
+            color=text_color,
             bgcolor=color,
             padding=ft.padding.symmetric(horizontal=20, vertical=10),
             shape=ft.RoundedRectangleBorder(radius=AppTheme.BORDER_RADIUS_MD),
@@ -309,6 +380,9 @@ def create_monument_carousel(monuments, on_monument_click):
 
 
 def show_loading(page, message="Ładowanie..."):
+    bg_color = ft.colors.with_opacity(0.8, ft.colors.BLACK) if AppTheme.is_dark_mode() else ft.colors.with_opacity(0.7,
+                                                                                                                   ft.colors.BLACK)
+
     loading = ft.Container(
         content=ft.Column(
             [
@@ -322,7 +396,7 @@ def show_loading(page, message="Ładowanie..."):
         width=page.width,
         height=page.height,
         alignment=ft.alignment.center,
-        bgcolor=ft.colors.with_opacity(0.7, ft.colors.BLACK),
+        bgcolor=bg_color,
     )
 
     page.overlay.append(loading)
@@ -338,24 +412,26 @@ def hide_loading(page, loading_overlay):
 
 def show_snackbar(page, message, color=None, action=None):
     if color is None:
-        color = AppTheme.PRIMARY
+        color = AppTheme.get_primary()
 
     page.snack_bar = ft.SnackBar(
         content=ft.Text(message, color=ft.colors.WHITE),
         bgcolor=color,
         action=action,
         action_color=ft.colors.WHITE,
-        duration=3000,  # 3 sekundy
+        duration=3000,
     )
     page.snack_bar.open = True
     page.update()
 
 
 def show_info_dialog(page, title, content):
-    """Wyświetla dialog informacyjny z jednym przyciskiem"""
     print(f"Pokazuję dialog: {title}")
 
-    # Używamy BottomSheet zamiast AlertDialog
+    bg_color = ft.colors.GREY_900 if AppTheme.is_dark_mode() else ft.colors.WHITE
+    text_color = AppTheme.get_text_primary()
+    primary_color = AppTheme.get_primary()
+
     info_sheet = ft.BottomSheet(
         ft.Container(
             content=ft.Column([
@@ -363,27 +439,29 @@ def show_info_dialog(page, title, content):
                     title,
                     size=22,
                     weight=ft.FontWeight.BOLD,
-                    color=AppTheme.PRIMARY
+                    color=primary_color
                 ),
                 ft.Divider(),
                 ft.Text(
                     content,
                     size=16,
-                    text_align=ft.TextAlign.CENTER
+                    text_align=ft.TextAlign.CENTER,
+                    color=text_color
                 ),
                 ft.ElevatedButton(
                     "OK",
                     on_click=lambda e: close_sheet(),
                     style=ft.ButtonStyle(
-                        color=ft.colors.WHITE,
-                        bgcolor=AppTheme.PRIMARY
+                        color=ft.colors.WHITE if not AppTheme.is_dark_mode() else ft.colors.BLACK,
+                        bgcolor=primary_color
                     )
                 )
             ],
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 spacing=20),
             padding=20,
-            width=page.width
+            width=page.width,
+            bgcolor=bg_color
         ),
         open=True
     )
@@ -397,10 +475,13 @@ def show_info_dialog(page, title, content):
 
 
 def show_confirmation_dialog(page, title, content, on_confirm, on_cancel=None):
-    """Wyświetla dialog potwierdzenia z dwoma przyciskami"""
     print(f"Pokazuję dialog potwierdzenia: {title}")
 
-    # Używamy BottomSheet zamiast AlertDialog
+    bg_color = ft.colors.GREY_900 if AppTheme.is_dark_mode() else ft.colors.WHITE
+    text_color = AppTheme.get_text_primary()
+    primary_color = AppTheme.get_primary()
+    secondary_color = AppTheme.get_secondary()
+
     confirmation_sheet = ft.BottomSheet(
         ft.Container(
             content=ft.Column([
@@ -408,13 +489,14 @@ def show_confirmation_dialog(page, title, content, on_confirm, on_cancel=None):
                     title,
                     size=22,
                     weight=ft.FontWeight.BOLD,
-                    color=AppTheme.PRIMARY
+                    color=primary_color
                 ),
                 ft.Divider(),
                 ft.Text(
                     content,
                     size=16,
-                    text_align=ft.TextAlign.CENTER
+                    text_align=ft.TextAlign.CENTER,
+                    color=text_color
                 ),
                 ft.Row([
                     ft.ElevatedButton(
@@ -422,15 +504,15 @@ def show_confirmation_dialog(page, title, content, on_confirm, on_cancel=None):
                         on_click=lambda e: cancel_action(),
                         style=ft.ButtonStyle(
                             color=ft.colors.WHITE,
-                            bgcolor=AppTheme.SECONDARY
+                            bgcolor=secondary_color
                         )
                     ),
                     ft.ElevatedButton(
                         "Potwierdź",
                         on_click=lambda e: confirm_action(),
                         style=ft.ButtonStyle(
-                            color=ft.colors.WHITE,
-                            bgcolor=AppTheme.PRIMARY
+                            color=ft.colors.WHITE if not AppTheme.is_dark_mode() else ft.colors.BLACK,
+                            bgcolor=primary_color
                         )
                     )
                 ], alignment=ft.MainAxisAlignment.CENTER, spacing=20)
@@ -438,7 +520,8 @@ def show_confirmation_dialog(page, title, content, on_confirm, on_cancel=None):
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 spacing=20),
             padding=20,
-            width=page.width
+            width=page.width,
+            bgcolor=bg_color
         ),
         open=True
     )
@@ -487,7 +570,6 @@ def apply_route_change_animation(page, new_view, direction="forward"):
         print("Zakończono animację przejścia")
     except Exception as e:
         print(f"Błąd podczas animacji przejścia: {e}")
-        # Awaryjne przejście bez animacji
         page.views.append(new_view)
         page.update()
 
@@ -525,7 +607,11 @@ def show_profile(e, page):
 
 
 def logout(e, page):
-    # Używamy BottomSheet zamiast AlertDialog
+    bg_color = ft.colors.GREY_900 if AppTheme.is_dark_mode() else ft.colors.WHITE
+    text_color = AppTheme.get_text_primary()
+    primary_color = AppTheme.get_primary()
+    error_color = AppTheme.get_error()
+
     logout_sheet = ft.BottomSheet(
         ft.Container(
             content=ft.Column([
@@ -533,13 +619,14 @@ def logout(e, page):
                     "Wylogowanie",
                     size=22,
                     weight=ft.FontWeight.BOLD,
-                    color=AppTheme.PRIMARY
+                    color=primary_color
                 ),
                 ft.Divider(),
                 ft.Text(
                     "Czy na pewno chcesz się wylogować?",
                     size=16,
-                    text_align=ft.TextAlign.CENTER
+                    text_align=ft.TextAlign.CENTER,
+                    color=text_color
                 ),
                 ft.Row([
                     ft.ElevatedButton(
@@ -547,7 +634,7 @@ def logout(e, page):
                         on_click=lambda e: close_sheet(),
                         style=ft.ButtonStyle(
                             color=ft.colors.WHITE,
-                            bgcolor=AppTheme.SECONDARY
+                            bgcolor=AppTheme.get_secondary()
                         )
                     ),
                     ft.ElevatedButton(
@@ -555,7 +642,7 @@ def logout(e, page):
                         on_click=lambda e: perform_logout(),
                         style=ft.ButtonStyle(
                             color=ft.colors.WHITE,
-                            bgcolor=AppTheme.ERROR
+                            bgcolor=error_color
                         )
                     )
                 ], alignment=ft.MainAxisAlignment.CENTER, spacing=20)
@@ -563,7 +650,8 @@ def logout(e, page):
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 spacing=20),
             padding=20,
-            width=page.width
+            width=page.width,
+            bgcolor=bg_color
         ),
         open=True
     )
@@ -578,7 +666,7 @@ def logout(e, page):
         page.views.clear()
         from views.welcome_view import create_welcome_view
         page.views.append(create_welcome_view(page))
-        show_snackbar(page, "Zostałeś wylogowany", color=AppTheme.SUCCESS)
+        show_snackbar(page, "Zostałeś wylogowany", color=AppTheme.get_success())
 
     page.overlay.append(logout_sheet)
     page.update()
